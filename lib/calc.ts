@@ -143,6 +143,73 @@ export function calcCutoff30(
   return { income: cfg.income, expenses, totalExpenses, remaining, savings, buffer }
 }
 
+export function buildStudentHistoryEntry(
+  settings: Settings,
+  label: string,
+  key: string,
+  actualDailyAllowance: number,
+  actualDailyExpenses: Record<string, number>,
+  actualWeeklyExtras: Record<string, number>
+): HistoryEntry {
+  const cfg = settings.studentConfig
+  
+  const dailyExpenses = Object.entries(cfg.baseDailyExpenses || {}).map(([name, amount]) => ({
+    name,
+    amount,
+    actualAmount: actualDailyExpenses[name] ?? amount,
+    wallet: cfg.expenseWallets?.[name]
+  }))
+
+  const weeklyExtras = Object.entries(cfg.weeklySchoolExtra || {}).map(([name, amount]) => ({
+    name,
+    amount,
+    actualAmount: actualWeeklyExtras[name] ?? amount,
+    wallet: cfg.expenseWallets?.[name]
+  }))
+
+  // Add custom expenses to weekly extras as well (static for now)
+  const custom = (cfg.customExpenses || []).map(e => ({
+    name: e.name,
+    amount: e.amount,
+    actualAmount: e.amount,
+    wallet: e.wallet
+  }))
+
+  const totalWeeklyExtras = [...weeklyExtras, ...custom]
+
+  const weeklyAllowance = actualDailyAllowance * (cfg.schoolDaysPerWeek || 0)
+  const dailyTotalActual = dailyExpenses.reduce((s, e) => s + e.actualAmount, 0)
+  const weeklyDailyTotal = dailyTotalActual * (cfg.schoolDaysPerWeek || 0)
+  const weeklyExtrasTotal = totalWeeklyExtras.reduce((s, e) => s + e.actualAmount, 0)
+  
+  const totalExpenses = weeklyDailyTotal + weeklyExtrasTotal
+  const surplus = weeklyAllowance - totalExpenses
+  
+  const split = (cfg.savingsSplit || 70) / 100
+  const savings = Math.max(0, Math.round(surplus * split))
+  const buffer = surplus - savings
+
+  return {
+    id: `student-${key}-${Date.now()}`,
+    mode: 'student',
+    month: key,
+    label: label,
+    studentData: {
+      dailyAllowance: cfg.dailyAllowance,
+      actualDailyAllowance,
+      schoolDaysPerWeek: cfg.schoolDaysPerWeek,
+      dailyExpenses,
+      weeklyExtras: totalWeeklyExtras,
+      weeklySurplus: surplus,
+      savings,
+      buffer
+    },
+    totalSavings: savings,
+    totalExpenses: totalExpenses,
+    createdAt: new Date().toISOString()
+  }
+}
+
 export function buildHistoryEntry(
   settings: Settings,
   monthType: MonthType,
@@ -181,6 +248,7 @@ export function buildHistoryEntry(
 
   const entry: HistoryEntry = {
     id: `${monthKey}-${Date.now()}`,
+    mode: 'worker',
     month: monthKey,
     label: monthLabel,
     monthType,
@@ -212,7 +280,7 @@ export function buildHistoryEntry(
     createdAt: new Date().toISOString(),
   }
   
-  entry.totalSavings = entry.cutoff15.savings + entry.cutoff30.savings
+  entry.totalSavings = (entry.cutoff15?.savings ?? 0) + (entry.cutoff30?.savings ?? 0)
   return entry
 }
 

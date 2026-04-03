@@ -75,7 +75,7 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 transition-opacity duration-300">
 
         {tab === 'dashboard' && <Dashboard settings={settings} history={history} onSaveHistory={addEntry} />}
-        {tab === 'student' && <StudentTab settings={settings} />}
+        {tab === 'student' && <StudentTab settings={settings} history={history} onSaveHistory={addEntry} />}
         {tab === 'settings' && <SettingsPanel settings={settings} onUpdate={setSettings} />}
         {tab === 'history' && <HistoryTab history={history} onRemove={removeEntry} onClear={clearHistory} savingsGoal={settings.savingsGoal} />}
       </main>

@@ -27,16 +27,31 @@ function HistoryCard({ entry, onRemove }: { entry: HistoryEntry; onRemove: () =>
              <Calendar size={20} strokeWidth={1.5} />
           </div>
           <div>
-            <div className="font-black text-slate-900 tracking-tight">{entry.label}</div>
+            <div className="font-black text-slate-900 tracking-tight flex items-center gap-2">
+              {entry.label}
+              {entry.mode === 'student' && (
+                <span className="text-[8px] bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-widest font-bold">
+                  Student Weekly
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2 mt-1.5">
-              <span className={`text-[9px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-widest border ${
-                entry.monthType === 'heavy' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
-              }`}>
-                {entry.monthType}
-              </span>
-              {entry.specialMonth.length > 0 && (
-                <span className="text-[9px] px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 font-bold uppercase tracking-widest">
-                  +{entry.specialMonth.length} High-Yield
+              {entry.mode !== 'student' ? (
+                <>
+                  <span className={`text-[9px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-widest border ${
+                    entry.monthType === 'heavy' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                  }`}>
+                    {entry.monthType}
+                  </span>
+                  {entry.specialMonth && entry.specialMonth.length > 0 && (
+                    <span className="text-[9px] px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 font-bold uppercase tracking-widest">
+                      +{entry.specialMonth.length} High-Yield
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-[9px] px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold uppercase tracking-widest">
+                  {entry.studentData?.schoolDaysPerWeek} Campus Days
                 </span>
               )}
             </div>
@@ -68,45 +83,101 @@ function HistoryCard({ entry, onRemove }: { entry: HistoryEntry; onRemove: () =>
       {/* Expanded view for print or user */}
       {(expanded || (typeof window !== 'undefined' && window.matchMedia('print').matches)) && (
         <div className={`border-t border-slate-100 p-8 bg-slate-50/30 print:bg-white print:border-none print:p-0 animate-in fade-in slide-in-from-top-2 duration-300 ${expanded ? '' : 'hidden print:block'}`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:grid-cols-2">
-            {[
-              { title: 'Mid-Cycle Analysis (15th)', data: entry.cutoff15, color: 'text-primary' },
-              { title: 'End-Cycle Analysis (30th)', data: entry.cutoff30, color: 'text-indigo-600' },
-            ].map(({ title, data, color }) => (
-              <div key={title} className="bg-white rounded-[32px] border border-slate-200 p-6 shadow-sm print:border-slate-100 print:p-4">
-                <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
-                  <span className={`font-black text-sm tracking-tight ${color}`}>{title}</span>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">GROSS: {peso(data.actualIncome ?? data.income)}</span>
+          {entry.mode === 'student' && entry.studentData ? (
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:grid-cols-2">
+                <div className="bg-white rounded-[32px] border border-slate-200 p-6 shadow-sm">
+                   <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+                      <span className="font-black text-sm tracking-tight text-indigo-600 uppercase">Campus Daily Ledger</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Gross Allowance: {peso(entry.studentData.actualDailyAllowance)}</span>
+                   </div>
+                   <div className="space-y-1">
+                      {entry.studentData.dailyExpenses.map((e, i) => (
+                        <div key={i} className="flex justify-between py-3 px-3 rounded-2xl hover:bg-slate-50 transition-soft">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-700 truncate">{e.name}</span>
+                            {e.wallet && <span className="text-[9px] font-black text-slate-400 uppercase">via {e.wallet}</span>}
+                          </div>
+                          <span className="font-black text-slate-900 text-sm tracking-tighter">{peso(e.actualAmount)}</span>
+                        </div>
+                      ))}
+                   </div>
+                   <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
+                      <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest px-3">
+                         <span className="text-slate-400">Total Spent / Day</span>
+                         <span className="text-rose-500 font-black">{peso(entry.studentData.dailyExpenses.reduce((s,x)=>s+x.actualAmount,0))}</span>
+                      </div>
+                   </div>
                 </div>
                 
-                <div className="space-y-1">
-                  {data.expenses.map((e, i) => (
-                    <div key={i} className="flex justify-between py-3 px-3 rounded-2xl hover:bg-slate-50 transition-soft group/item">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-700 truncate">{e.name}</span>
-                        {e.wallet && <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">via {e.wallet}</span>}
+                <div className="bg-white rounded-[32px] border border-slate-200 p-6 shadow-sm">
+                   <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+                      <span className="font-black text-sm tracking-tight text-primary uppercase">Weekly Allocation</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Surplus: {peso(entry.studentData.weeklySurplus)}</span>
+                   </div>
+                   <div className="space-y-1">
+                      {entry.studentData.weeklyExtras.map((e, i) => (
+                        <div key={i} className="flex justify-between py-3 px-3 rounded-2xl hover:bg-slate-50 transition-soft">
+                           <div className="flex flex-col">
+                              <span className="text-sm font-bold text-slate-700 truncate">{e.name}</span>
+                              {e.wallet && <span className="text-[9px] font-black text-slate-400 uppercase">via {e.wallet}</span>}
+                           </div>
+                           <span className="font-black text-slate-900 text-sm tracking-tighter">{peso(e.actualAmount)}</span>
+                        </div>
+                      ))}
+                   </div>
+                   <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-2 gap-3">
+                      <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                         <span className="text-[9px] font-black uppercase text-primary mb-1 block">Savings</span>
+                         <span className="text-xl font-black text-primary">{peso(entry.studentData.savings)}</span>
                       </div>
-                      <div className="flex gap-4 items-center shrink-0">
-                        <span className="w-16 text-right text-slate-300 text-xs font-medium print:hidden">{peso(e.amount)}</span>
-                        <span className="w-16 text-right font-black text-slate-900 text-sm tracking-tighter">{peso(e.actualAmount ?? e.amount)}</span>
+                      <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                         <span className="text-[9px] font-black uppercase text-emerald-600 mb-1 block">Buffer</span>
+                         <span className="text-xl font-black text-emerald-600">{peso(entry.studentData.buffer)}</span>
                       </div>
+                   </div>
+                </div>
+             </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:grid-cols-2">
+              {[
+                { title: 'Mid-Cycle Analysis (15th)', data: entry.cutoff15, color: 'text-primary' },
+                { title: 'End-Cycle Analysis (30th)', data: entry.cutoff30, color: 'text-indigo-600' },
+              ].map(({ title, data, color }) => (
+                <div key={title} className="bg-white rounded-[32px] border border-slate-200 p-6 shadow-sm print:border-slate-100 print:p-4">
+                  <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+                    <span className={`font-black text-sm tracking-tight ${color}`}>{title}</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">GROSS: {peso(data?.actualIncome ?? data?.income ?? 0)}</span>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    {data?.expenses.map((e, i) => (
+                      <div key={i} className="flex justify-between py-3 px-3 rounded-2xl hover:bg-slate-50 transition-soft group/item">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-700 truncate">{e.name}</span>
+                          {e.wallet && <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">via {e.wallet}</span>}
+                        </div>
+                        <div className="flex gap-4 items-center shrink-0">
+                          <span className="w-16 text-right text-slate-300 text-xs font-medium print:hidden">{peso(e.amount)}</span>
+                          <span className="w-16 text-right font-black text-slate-900 text-sm tracking-tighter">{peso(e.actualAmount ?? e.amount)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest px-3">
+                      <span className="text-slate-400">Total Outflow</span>
+                      <span className="text-rose-500 font-black">{peso(data?.totalActualExpenses ?? data?.totalExpenses ?? 0)}</span>
                     </div>
-                  ))}
-                </div>
-                
-                <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
-                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest px-3">
-                    <span className="text-slate-400">Total Outflow</span>
-                    <span className="text-rose-500 font-black">{peso(data.totalActualExpenses ?? data.totalExpenses)}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-slate-900 rounded-2xl text-white">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Cycle Savings</span>
-                    <span className="text-lg font-black tracking-tighter">{peso(data.savings)}</span>
+                    <div className="flex justify-between items-center p-4 bg-slate-900 rounded-2xl text-white">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Cycle Savings</span>
+                      <span className="text-lg font-black tracking-tighter">{peso(data?.savings ?? 0)}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -114,6 +185,8 @@ function HistoryCard({ entry, onRemove }: { entry: HistoryEntry; onRemove: () =>
 }
 
 export default function HistoryTab({ history, onRemove, onClear, savingsGoal }: Props) {
+  const [filterMode, setFilterMode] = useState<'all' | 'worker' | 'student'>('all')
+
   if (history.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-center bg-white border border-slate-200 border-dashed rounded-[40px]">
@@ -126,17 +199,22 @@ export default function HistoryTab({ history, onRemove, onClear, savingsGoal }: 
     )
   }
 
-  const sorted = [...history].sort((a, b) => a.month.localeCompare(b.month))
+  const filteredHistory = history.filter(e => filterMode === 'all' || e.mode === filterMode)
+  const sorted = [...filteredHistory].sort((a, b) => a.month.localeCompare(b.month))
   const cumData = sorted.reduce<{ label: string; savings: number; expenses: number; cumulative: number }[]>((acc, e) => {
     const prev = acc[acc.length - 1]?.cumulative || 0
     acc.push({ label: e.label, savings: e.totalSavings, expenses: e.totalExpenses, cumulative: prev + e.totalSavings })
     return acc
   }, [])
 
-  const totalSaved = (history || []).reduce((s, e) => s + (e.totalSavings || 0), 0)
-  const totalSpent = (history || []).reduce((s, e) => s + (e.totalExpenses || 0), 0)
-  const avgSavings = Math.round(totalSaved / history.length)
-  const goalPct = savingsGoal > 0 ? Math.min(100, Math.round((totalSaved / savingsGoal) * 100)) : 0
+  const totalSaved = (filteredHistory || []).reduce((s, e) => s + (e.totalSavings || 0), 0)
+  const totalSpent = (filteredHistory || []).reduce((s, e) => s + (e.totalExpenses || 0), 0)
+  const avgSavings = filteredHistory.length > 0 ? Math.round(totalSaved / filteredHistory.length) : 0
+  
+  // Use the appropriate goal: worker goal is passed as prop, student has its own but we'll use a heuristic 
+  // or just the prop if 'all'.
+  const currentGoal = filterMode === 'student' ? 5000 : savingsGoal 
+  const goalPct = currentGoal > 0 ? Math.min(100, Math.round((totalSaved / currentGoal) * 100)) : 0
 
   return (
     <div className="space-y-10 print:space-y-4 pb-20">
@@ -149,8 +227,27 @@ export default function HistoryTab({ history, onRemove, onClear, savingsGoal }: 
             <Download size={24} strokeWidth={1.5} />
           </div>
           <div>
-            <h4 className="text-xl font-black text-white tracking-tight leading-none mb-2">Financial Portfolio Export</h4>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Generate certified professional summaries</p>
+            <h4 className="text-xl font-black text-white tracking-tight leading-none mb-2">Portfolio History</h4>
+            <div className="flex p-1 bg-white/5 rounded-xl border border-white/10 mt-1">
+               <button 
+                onClick={() => setFilterMode('all')}
+                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-soft ${filterMode === 'all' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white'}`}
+               >
+                 All
+               </button>
+               <button 
+                onClick={() => setFilterMode('worker')}
+                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-soft ${filterMode === 'worker' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+               >
+                 Dashboard
+               </button>
+               <button 
+                onClick={() => setFilterMode('student')}
+                className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-soft ${filterMode === 'student' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+               >
+                 Student
+               </button>
+            </div>
           </div>
         </div>
         <div className="flex gap-4 relative z-10">
@@ -172,7 +269,7 @@ export default function HistoryTab({ history, onRemove, onClear, savingsGoal }: 
       {/* Summary Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Active Cycles', value: history.length.toString(), color: 'text-slate-900', icon: Calendar },
+          { label: filterMode === 'all' ? 'Active Records' : `${filterMode === 'worker' ? 'Dashboard' : 'Student'} Reports`, value: filteredHistory.length.toString(), color: 'text-slate-900', icon: Calendar },
           { label: 'Net Accumulation', value: peso(totalSaved), color: 'text-primary', icon: PiggyBank },
           { label: 'External Outflow', value: peso(totalSpent), color: 'text-rose-600', icon: Receipt },
           { label: 'Mean Yield', value: peso(avgSavings), color: 'text-emerald-600', icon: TrendingUp },
@@ -196,7 +293,7 @@ export default function HistoryTab({ history, onRemove, onClear, savingsGoal }: 
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Wealth Goal Progression</span>
             <div className="flex items-baseline gap-4">
               <h2 className="text-5xl font-black text-slate-900 tracking-tight">{peso(totalSaved)}</h2>
-              <span className="text-lg font-bold text-slate-400">/ {peso(savingsGoal)} Target</span>
+              <span className="text-lg font-bold text-slate-400">/ {peso(currentGoal)} Target</span>
             </div>
           </div>
           <div className="text-right">
@@ -331,7 +428,7 @@ export default function HistoryTab({ history, onRemove, onClear, savingsGoal }: 
       {/* History List */}
       <div>
         <div className="flex justify-between items-center mb-8 px-4">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Lifecycle Audit log ({history.length})</h3>
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{filterMode === 'worker' ? 'Dashboard' : filterMode} log ({filteredHistory.length})</h3>
           <button
             onClick={onClear}
             className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-rose-500 flex items-center gap-2 transition-soft"
@@ -340,9 +437,14 @@ export default function HistoryTab({ history, onRemove, onClear, savingsGoal }: 
           </button>
         </div>
         <div className="space-y-4">
-          {[...history].sort((a, b) => b.month.localeCompare(a.month)).map(e => (
+          {filteredHistory.sort((a, b) => b.month.localeCompare(a.month)).map(e => (
             <HistoryCard key={e.id} entry={e} onRemove={() => onRemove(e.id)} />
           ))}
+          {filteredHistory.length === 0 && (
+            <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[32px]">
+               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">No {filterMode} records found</p>
+            </div>
+          )}
         </div>
       </div>
       

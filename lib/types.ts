@@ -54,11 +54,12 @@ export interface Settings {
 
 export interface HistoryEntry {
   id: string
-  month: string // e.g. "2025-04"
-  label: string // e.g. "April 2025"
-  monthType: MonthType
-  specialMonth: SpecialMonth
-  cutoff15: {
+  mode?: 'worker' | 'student'
+  month: string // e.g. "2025-04" or "2025-W12"
+  label: string // e.g. "April 2025" or "Week 12, 2025"
+  monthType?: MonthType
+  specialMonth?: SpecialMonth
+  cutoff15?: {
     income: number
     actualIncome?: number
     expenses: { name: string; amount: number; actualAmount?: number; category: string; wallet?: string }[]
@@ -69,7 +70,7 @@ export interface HistoryEntry {
     savings: number
     buffer: number
   }
-  cutoff30: {
+  cutoff30?: {
     income: number
     actualIncome?: number
     expenses: { name: string; amount: number; actualAmount?: number; category: string; wallet?: string }[]
@@ -77,6 +78,16 @@ export interface HistoryEntry {
     totalActualExpenses?: number
     variance?: number
     remaining: number
+    savings: number
+    buffer: number
+  }
+  studentData?: {
+    dailyAllowance: number
+    actualDailyAllowance: number
+    schoolDaysPerWeek: number
+    dailyExpenses: { name: string; amount: number; actualAmount: number; wallet?: string }[]
+    weeklyExtras: { name: string; amount: number; actualAmount: number; wallet?: string }[]
+    weeklySurplus: number
     savings: number
     buffer: number
   }
