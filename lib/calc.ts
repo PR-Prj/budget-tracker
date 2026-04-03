@@ -1,4 +1,4 @@
-import { Settings, MonthType, SpecialMonth, HistoryEntry, AdditionalPayment } from './types'
+import { Settings, MonthType, SpecialMonth, HistoryEntry, AdditionalPayment, SavingsJar } from './types'
 
 export function getSpecialExtra(specialMonth: SpecialMonth, payments: AdditionalPayment[], cutoff: 15 | 30): number {
   if (!specialMonth.length) return 0
@@ -148,12 +148,38 @@ export function buildHistoryEntry(
   monthType: MonthType,
   specialMonth: SpecialMonth,
   monthLabel: string,
-  monthKey: string
+  monthKey: string,
+  actuals15: Record<string, number> = {},
+  actuals30: Record<string, number> = {},
+  actualIncome15?: number,
+  actualIncome30?: number
 ): HistoryEntry {
   const c15 = calcCutoff15(settings, monthType, specialMonth)
   const c30 = calcCutoff30(settings, monthType, specialMonth)
 
-  return {
+  const processExpenses = (expenses: ExpenseItem[], actuals: Record<string, number>) => {
+    let totalActual = 0
+    const items = expenses.map(e => {
+      const actual = actuals[e.name] !== undefined ? actuals[e.name] : e.amount
+      totalActual += actual
+      return { 
+        name: e.name, 
+        amount: e.amount, 
+        actualAmount: actual,
+        category: e.category,
+        wallet: e.wallet 
+      }
+    })
+    return { items, totalActual }
+  }
+
+  const res15 = processExpenses(c15.expenses, actuals15)
+  const res30 = processExpenses(c30.expenses, actuals30)
+
+  const finalIncome15 = actualIncome15 !== undefined ? actualIncome15 : c15.income
+  const finalIncome30 = actualIncome30 !== undefined ? actualIncome30 : c30.income
+
+  const entry: HistoryEntry = {
     id: `${monthKey}-${Date.now()}`,
     month: monthKey,
     label: monthLabel,
@@ -161,34 +187,41 @@ export function buildHistoryEntry(
     specialMonth,
     cutoff15: {
       income: c15.income,
-      expenses: c15.expenses.map(e => ({ 
-        name: e.name, 
-        amount: e.amount, 
-        category: e.category,
-        wallet: e.wallet 
-      })),
+      actualIncome: actualIncome15,
+      expenses: res15.items,
       totalExpenses: c15.totalExpenses,
-      remaining: c15.remaining,
-      savings: c15.savings,
-      buffer: c15.buffer,
+      totalActualExpenses: res15.totalActual,
+      variance: c15.totalExpenses - res15.totalActual,
+      remaining: finalIncome15 - res15.totalActual,
+      savings: Math.max(0, Math.round((finalIncome15 - res15.totalActual) * (settings.savingsSplit / 100))),
+      buffer: (finalIncome15 - res15.totalActual) - Math.max(0, Math.round((finalIncome15 - res15.totalActual) * (settings.savingsSplit / 100))),
     },
     cutoff30: {
       income: c30.income,
-      expenses: c30.expenses.map(e => ({ 
-        name: e.name, 
-        amount: e.amount, 
-        category: e.category,
-        wallet: e.wallet 
-      })),
+      actualIncome: actualIncome30,
+      expenses: res30.items,
       totalExpenses: c30.totalExpenses,
-      remaining: c30.remaining,
-      savings: c30.savings,
-      buffer: c30.buffer,
+      totalActualExpenses: res30.totalActual,
+      variance: c30.totalExpenses - res30.totalActual,
+      remaining: finalIncome30 - res30.totalActual,
+      savings: Math.max(0, Math.round((finalIncome30 - res30.totalActual) * (settings.savingsSplit / 100))),
+      buffer: (finalIncome30 - res30.totalActual) - Math.max(0, Math.round((finalIncome30 - res30.totalActual) * (settings.savingsSplit / 100))),
     },
-    totalSavings: c15.savings + c30.savings,
-    totalExpenses: c15.totalExpenses + c30.totalExpenses,
+    totalSavings: 0, 
+    totalExpenses: res15.totalActual + res30.totalActual,
     createdAt: new Date().toISOString(),
   }
+  
+  entry.totalSavings = entry.cutoff15.savings + entry.cutoff30.savings
+  return entry
+}
+
+export function distributeSavingsToJars(totalSavings: number, jars: SavingsJar[] = []): { jar: SavingsJar; amount: number }[] {
+  if (jars.length === 0) return []
+  return jars.map(jar => ({
+    jar,
+    amount: Math.round(totalSavings * (jar.splitPercent / 100))
+  }))
 }
 
 export function peso(v: number): string {

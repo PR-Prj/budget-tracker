@@ -1,0 +1,17 @@
+{
+  "name": "Budget Tracker PH",
+  "short_name": "Budget PH",
+  "description": "Professional Semi-monthly Budget Tracker for workers and students",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

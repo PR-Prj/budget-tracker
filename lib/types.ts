@@ -1,5 +1,11 @@
 export type MonthType = 'heavy' | 'light'
 export type SpecialMonth = string[] // Array of IDs of AdditionalPayment
+export interface SavingsJar {
+  id: string
+  name: string
+  targetAmount: number
+  splitPercent: number // 0-100, how much of the savings split goes here
+}
 
 export interface CustomExpense {
   id: string
@@ -33,6 +39,7 @@ export interface StudentConfig {
   customExpenses?: CustomExpense[]
   savingsGoal?: number
   savingsSplit?: number
+  savingsJars?: SavingsJar[]
 }
 
 export interface Settings {
@@ -41,6 +48,7 @@ export interface Settings {
   additionalPayments: AdditionalPayment[]
   savingsGoal: number
   savingsSplit: number // percent to savings (0-100), rest goes to buffer
+  savingsJars: SavingsJar[]
   studentConfig: StudentConfig
 }
 
@@ -52,16 +60,22 @@ export interface HistoryEntry {
   specialMonth: SpecialMonth
   cutoff15: {
     income: number
-    expenses: { name: string; amount: number; category: string; wallet?: string }[]
+    actualIncome?: number
+    expenses: { name: string; amount: number; actualAmount?: number; category: string; wallet?: string }[]
     totalExpenses: number
+    totalActualExpenses?: number
+    variance?: number
     remaining: number
     savings: number
     buffer: number
   }
   cutoff30: {
     income: number
-    expenses: { name: string; amount: number; category: string; wallet?: string }[]
+    actualIncome?: number
+    expenses: { name: string; amount: number; actualAmount?: number; category: string; wallet?: string }[]
     totalExpenses: number
+    totalActualExpenses?: number
+    variance?: number
     remaining: number
     savings: number
     buffer: number
@@ -74,6 +88,11 @@ export interface HistoryEntry {
 export const DEFAULT_SETTINGS: Settings = {
   savingsGoal: 10000,
   savingsSplit: 50,
+  savingsJars: [
+    { id: 'emergency', name: 'Emergency Fund', targetAmount: 5000, splitPercent: 50 },
+    { id: 'gadget', name: 'Gadget Pot', targetAmount: 3000, splitPercent: 30 },
+    { id: 'travel', name: 'Travel Jar', targetAmount: 2000, splitPercent: 20 },
+  ],
   additionalPayments: [
     { id: 'apr', month: 'April', cutoff15: 860, cutoff30: 0 },
     { id: 'may', month: 'May', cutoff15: 770, cutoff30: 0 },
@@ -129,5 +148,9 @@ export const DEFAULT_SETTINGS: Settings = {
     customExpenses: [],
     savingsGoal: 5000,
     savingsSplit: 70,
+    savingsJars: [
+      { id: 'school', name: 'School Projects', targetAmount: 3000, splitPercent: 60 },
+      { id: 'treat', name: 'Weekly Treats', targetAmount: 2000, splitPercent: 40 },
+    ],
   },
 }

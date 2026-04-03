@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { HistoryEntry } from '@/lib/types'
 import { peso } from '@/lib/calc'
-import { Trash2, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react'
+import { exportToCSV } from '@/lib/export'
+import { Trash2, ChevronDown, ChevronUp, TrendingUp, Download, Printer, Calendar, PieChart, Wallet, CreditCard, ChevronRight, PiggyBank, Receipt } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 interface Props {
@@ -16,87 +17,91 @@ function HistoryCard({ entry, onRemove }: { entry: HistoryEntry; onRemove: () =>
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+    <div className="bg-white border border-slate-200 rounded-[32px] overflow-hidden print:border-none print:shadow-none break-inside-avoid mb-6 shadow-sm shadow-slate-200/50 hover:border-primary/20 transition-soft group">
       <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-50/50 transition-soft print:p-0 print:mb-2"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-5">
+          <div className="w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-primary group-hover:border-primary/20 transition-soft">
+             <Calendar size={20} strokeWidth={1.5} />
+          </div>
           <div>
-            <div className="font-semibold text-gray-800">{entry.label}</div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className={`text-xs px-2 py-0.5 rounded-full ${entry.monthType === 'heavy' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+            <div className="font-black text-slate-900 tracking-tight">{entry.label}</div>
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className={`text-[9px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-widest border ${
+                entry.monthType === 'heavy' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+              }`}>
                 {entry.monthType}
               </span>
               {entry.specialMonth.length > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-600">
-                  +{entry.specialMonth.length} extra
+                <span className="text-[9px] px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 font-bold uppercase tracking-widest">
+                  +{entry.specialMonth.length} High-Yield
                 </span>
               )}
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-8">
           <div className="text-right">
-            <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-tighter">Savings</div>
-            <div className="text-sm sm:text-base font-semibold text-blue-600 leading-none">{peso(entry.totalSavings)}</div>
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mb-1">Savings</div>
+            <div className="text-lg font-black text-primary leading-none tracking-tighter">{peso(entry.totalSavings)}</div>
           </div>
-          <div className="text-right hidden xs:block">
-            <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-tighter">Spent</div>
-            <div className="text-sm sm:text-base font-semibold text-red-500 leading-none">{peso(entry.totalExpenses)}</div>
+          <div className="text-right hidden sm:block">
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mb-1">Expenses</div>
+            <div className="text-lg font-black text-rose-500 leading-none tracking-tighter">{peso(entry.totalExpenses)}</div>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 ml-1">
+          <div className="flex items-center gap-2 ml-4">
             <button
               onClick={e => { e.stopPropagation(); onRemove() }}
-              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+              className="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-soft opacity-0 group-hover:opacity-100"
             >
-              <Trash2 size={15} />
+              <Trash2 size={16} strokeWidth={2} />
             </button>
-            {expanded ? <ChevronUp size={18} className="text-indigo-400" /> : <ChevronDown size={18} className="text-gray-300" />}
+            <div className="p-2 bg-slate-50 rounded-xl">
+               {expanded ? <ChevronUp size={16} className="text-slate-600" /> : <ChevronDown size={16} className="text-slate-400" />}
+            </div>
           </div>
         </div>
       </div>
 
-      {expanded && (
-        <div className="border-t border-gray-100 p-4 bg-gray-50">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Expanded view for print or user */}
+      {(expanded || (typeof window !== 'undefined' && window.matchMedia('print').matches)) && (
+        <div className={`border-t border-slate-100 p-8 bg-slate-50/30 print:bg-white print:border-none print:p-0 animate-in fade-in slide-in-from-top-2 duration-300 ${expanded ? '' : 'hidden print:block'}`}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:grid-cols-2">
             {[
-              { title: '15th cutoff', data: entry.cutoff15 },
-              { title: '30th cutoff', data: entry.cutoff30 },
-            ].map(({ title, data }) => (
-              <div key={title} className="bg-white rounded-xl border border-gray-200 p-4">
-                <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
-                  <span className="font-semibold text-gray-700 text-sm">{title}</span>
-                  <span className="text-xs text-gray-500">Income: {peso(data.income)}</span>
+              { title: 'Mid-Cycle Analysis (15th)', data: entry.cutoff15, color: 'text-primary' },
+              { title: 'End-Cycle Analysis (30th)', data: entry.cutoff30, color: 'text-indigo-600' },
+            ].map(({ title, data, color }) => (
+              <div key={title} className="bg-white rounded-[32px] border border-slate-200 p-6 shadow-sm print:border-slate-100 print:p-4">
+                <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+                  <span className={`font-black text-sm tracking-tight ${color}`}>{title}</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">GROSS: {peso(data.actualIncome ?? data.income)}</span>
                 </div>
-                <div className="space-y-0">
+                
+                <div className="space-y-1">
                   {data.expenses.map((e, i) => (
-                    <div key={i} className="flex justify-between py-1.5 text-sm border-t border-gray-50 first:border-t-0">
-                      <span className="text-gray-600">{e.name}</span>
-                      <span className={`font-medium ${
-                        e.category === 'additional' ? 'text-rose-500' :
-                        e.category === 'custom' ? 'text-violet-500' :
-                        e.category === 'heavy' ? 'text-amber-600' : 'text-gray-700'
-                      }`}>{peso(e.amount)}</span>
+                    <div key={i} className="flex justify-between py-3 px-3 rounded-2xl hover:bg-slate-50 transition-soft group/item">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-slate-700 truncate">{e.name}</span>
+                        {e.wallet && <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">via {e.wallet}</span>}
+                      </div>
+                      <div className="flex gap-4 items-center shrink-0">
+                        <span className="w-16 text-right text-slate-300 text-xs font-medium print:hidden">{peso(e.amount)}</span>
+                        <span className="w-16 text-right font-black text-slate-900 text-sm tracking-tighter">{peso(e.actualAmount ?? e.amount)}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 pt-3 border-t border-gray-200 space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Total expenses</span>
-                    <span className="font-semibold text-red-500">{peso(data.totalExpenses)}</span>
+                
+                <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
+                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest px-3">
+                    <span className="text-slate-400">Total Outflow</span>
+                    <span className="text-rose-500 font-black">{peso(data.totalActualExpenses ?? data.totalExpenses)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Remaining</span>
-                    <span className={`font-semibold ${data.remaining < 0 ? 'text-red-500' : 'text-emerald-500'}`}>{peso(data.remaining)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Savings</span>
-                    <span className="font-semibold text-blue-600">{peso(data.savings)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Buffer</span>
-                    <span className="font-semibold text-emerald-600">{peso(data.buffer)}</span>
+                  <div className="flex justify-between items-center p-4 bg-slate-900 rounded-2xl text-white">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Cycle Savings</span>
+                    <span className="text-lg font-black tracking-tighter">{peso(data.savings)}</span>
                   </div>
                 </div>
               </div>
@@ -111,10 +116,12 @@ function HistoryCard({ entry, onRemove }: { entry: HistoryEntry; onRemove: () =>
 export default function HistoryTab({ history, onRemove, onClear, savingsGoal }: Props) {
   if (history.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <TrendingUp size={48} className="text-gray-200 mb-4" />
-        <h3 className="text-lg font-semibold text-gray-400 mb-1">No history yet</h3>
-        <p className="text-sm text-gray-400">Go to Dashboard and click &quot;Save to history&quot; after each month.</p>
+      <div className="flex flex-col items-center justify-center py-32 text-center bg-white border border-slate-200 border-dashed rounded-[40px]">
+        <div className="p-6 bg-slate-50 rounded-full mb-6 border border-slate-100">
+           <TrendingUp size={48} strokeWidth={1} className="text-slate-200" />
+        </div>
+        <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">Portfolio History Empty</h3>
+        <p className="text-sm text-slate-400 max-w-xs font-medium leading-relaxed">Save monthly summaries from your dashboard to track your long-term growth here.</p>
       </div>
     )
   }
@@ -126,80 +133,229 @@ export default function HistoryTab({ history, onRemove, onClear, savingsGoal }: 
     return acc
   }, [])
 
-  const totalSaved = history.reduce((s, e) => s + e.totalSavings, 0)
-  const totalSpent = history.reduce((s, e) => s + e.totalExpenses, 0)
+  const totalSaved = (history || []).reduce((s, e) => s + (e.totalSavings || 0), 0)
+  const totalSpent = (history || []).reduce((s, e) => s + (e.totalExpenses || 0), 0)
   const avgSavings = Math.round(totalSaved / history.length)
   const goalPct = savingsGoal > 0 ? Math.min(100, Math.round((totalSaved / savingsGoal) * 100)) : 0
 
   return (
-    <div className="space-y-6">
-      {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="space-y-10 print:space-y-4 pb-20">
+      {/* Export Section */}
+      <div className="bg-slate-900 rounded-[32px] p-8 shadow-2xl shadow-slate-200 border border-slate-800 flex flex-wrap justify-between items-center gap-8 print:hidden relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full -mr-20 -mt-20 blur-[80px] pointer-events-none" />
+        
+        <div className="flex items-center gap-5 relative z-10">
+          <div className="p-3.5 bg-white/10 text-primary rounded-2xl border border-white/5 backdrop-blur-md shadow-inner">
+            <Download size={24} strokeWidth={1.5} />
+          </div>
+          <div>
+            <h4 className="text-xl font-black text-white tracking-tight leading-none mb-2">Financial Portfolio Export</h4>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Generate certified professional summaries</p>
+          </div>
+        </div>
+        <div className="flex gap-4 relative z-10">
+           <button
+            onClick={() => exportToCSV(history)}
+            className="flex items-center gap-3 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/10 hover:text-white transition-soft"
+          >
+            <Download size={16} /> Spreadsheet
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-3 px-8 py-3 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-primary/90 transition-soft shadow-lg shadow-primary/20 active:scale-95"
+          >
+            <Printer size={16} /> Print Reports
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Months tracked', value: history.length.toString(), color: 'text-gray-700' },
-          { label: 'Total saved', value: peso(totalSaved), color: 'text-blue-600' },
-          { label: 'Total spent', value: peso(totalSpent), color: 'text-red-500' },
-          { label: 'Avg monthly savings', value: peso(avgSavings), color: 'text-emerald-600' },
+          { label: 'Active Cycles', value: history.length.toString(), color: 'text-slate-900', icon: Calendar },
+          { label: 'Net Accumulation', value: peso(totalSaved), color: 'text-primary', icon: PiggyBank },
+          { label: 'External Outflow', value: peso(totalSpent), color: 'text-rose-600', icon: Receipt },
+          { label: 'Mean Yield', value: peso(avgSavings), color: 'text-emerald-600', icon: TrendingUp },
         ].map(m => (
-          <div key={m.label} className="bg-white border border-gray-200 rounded-2xl p-4">
-            <div className="text-xs text-gray-500 mb-1">{m.label}</div>
-            <div className={`text-xl font-semibold ${m.color}`}>{m.value}</div>
+          <div key={m.label} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:border-primary/20 transition-soft group">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="p-2 bg-slate-50 rounded-xl group-hover:bg-primary/5 transition-soft">
+                <m.icon size={16} strokeWidth={1.5} className="text-slate-400 group-hover:text-primary transition-soft" />
+              </div>
+              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider leading-none group-hover:text-slate-600 transition-soft">{m.label}</span>
+            </div>
+            <div className={`text-2xl font-black ${m.color} tracking-tight`}>{m.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Goal progress */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <div className="flex justify-between items-center mb-3">
-          <span className="font-semibold text-gray-700">Goal progress (actual)</span>
-          <span className="text-sm text-gray-500">Goal: {peso(savingsGoal)}</span>
+      {/* Goal Progress with Milestones */}
+      <div className="bg-white border border-slate-200 rounded-[40px] p-10 shadow-sm shadow-slate-200/50">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 mb-12">
+          <div className="space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Wealth Goal Progression</span>
+            <div className="flex items-baseline gap-4">
+              <h2 className="text-5xl font-black text-slate-900 tracking-tight">{peso(totalSaved)}</h2>
+              <span className="text-lg font-bold text-slate-400">/ {peso(savingsGoal)} Target</span>
+            </div>
+          </div>
+          <div className="text-right">
+             <div className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-xl border border-primary/10">
+               Current Status: {goalPct}% Efficiency
+             </div>
+          </div>
         </div>
-        <div className="w-full bg-gray-100 rounded-full h-3 mb-2">
-          <div className="bg-blue-500 h-3 rounded-full transition-all" style={{ width: `${goalPct}%` }} />
+        
+        <div className="relative pt-4 pb-12">
+          <div className="h-4 bg-slate-100 rounded-full overflow-hidden p-1 shadow-inner border border-slate-200/50">
+            <div 
+              className="h-full bg-gradient-to-r from-primary to-indigo-400 rounded-full transition-all duration-1000 ease-out shadow-[0_4px_12px_rgba(59,130,246,0.3)]" 
+              style={{ width: `${goalPct}%` }} 
+            />
+          </div>
+          
+          {/* Milestone Markers */}
+          {[25, 50, 75, 100].map(m => (
+            <div 
+              key={m}
+              className="absolute top-0 bottom-0 flex flex-col items-center pointer-events-none"
+              style={{ left: `${m}%` }}
+            >
+              <div className={`w-0.5 h-8 ${goalPct >= m ? 'bg-primary' : 'bg-slate-200'} transition-all duration-700`} />
+              <div className="mt-3 flex flex-col items-center gap-1.5">
+                <span className={`text-[10px] font-black tracking-widest transition-colors ${goalPct >= m ? 'text-primary' : 'text-slate-400'}`}>
+                  {m}%
+                </span>
+                {goalPct >= m && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="flex justify-between text-sm text-gray-500">
-          <span>{peso(totalSaved)} saved so far</span>
-          <span>{goalPct}%</span>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-6 pt-10 border-t border-slate-50">
+           {[25, 50, 75, 100].map(m => {
+             const milestoneAmt = savingsGoal * (m / 100)
+             const isReached = totalSaved >= milestoneAmt
+             return (
+               <div key={m} className={`flex flex-col p-5 rounded-[24px] border transition-soft ${
+                 isReached 
+                   ? 'bg-emerald-50/[0.15] border-emerald-100 shadow-sm' 
+                   : 'bg-slate-50/30 border-slate-100 opacity-60'
+               }`}>
+                 <span className={`text-[9px] font-black uppercase tracking-[0.2em] mb-2 ${isReached ? 'text-emerald-500' : 'text-slate-400'}`}>
+                   PHASE {m}%
+                 </span>
+                 <span className={`text-sm font-black tracking-tight ${isReached ? 'text-emerald-700' : 'text-slate-600'}`}>
+                   {peso(milestoneAmt)}
+                 </span>
+                 {isReached && (
+                   <div className="flex items-center gap-1.5 mt-2">
+                     <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                     <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Achieved</span>
+                   </div>
+                 )}
+               </div>
+             )
+           })}
         </div>
       </div>
 
-      {/* Chart */}
+      {/* Analytics Chart */}
       {cumData.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-5">
-          <h3 className="font-semibold text-gray-800 mb-4">Savings over time</h3>
-          <div style={{ height: 240 }}>
+        <div className="bg-white border border-slate-200 rounded-[40px] p-8 shadow-sm shadow-slate-200/50">
+          <div className="flex items-center gap-4 mb-10 pb-6 border-b border-slate-100">
+             <div className="p-3 bg-primary/5 text-primary rounded-2xl border border-primary/10">
+                <TrendingUp size={20} strokeWidth={1.5} />
+             </div>
+             <h3 className="text-lg font-black text-slate-900 tracking-tight">Growth Trajectory Analytics</h3>
+          </div>
+          <div style={{ height: 320 }} className="mr-6">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={cumData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₱${(v/1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v) => typeof v === 'number' ? peso(v) : v} />
-                <Legend />
-                <Line type="monotone" dataKey="cumulative" name="Cumulative savings" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="savings" name="Monthly savings" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" />
+              <LineChart data={cumData} margin={{ top: 10, right: 10, left: 20, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="label" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
+                  tickFormatter={v => `₱${(v/1000).toFixed(0)}k`} 
+                  dx={-10}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '20px', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', 
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    padding: '12px 16px'
+                  }} 
+                  formatter={(v) => typeof v === 'number' ? peso(v) : v} 
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em' }} 
+                  iconType="circle"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="cumulative" 
+                  name="Net Wealth" 
+                  stroke="#3b82f6" 
+                  strokeWidth={4} 
+                  dot={{ r: 6, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }} 
+                  activeDot={{ r: 8, strokeWidth: 0 }} 
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="savings" 
+                  name="Cycle Yield" 
+                  stroke="#10b981" 
+                  strokeWidth={2} 
+                  strokeDasharray="5 5"
+                  dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} 
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      {/* History list */}
+      {/* History List */}
       <div>
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">All entries ({history.length})</h3>
+        <div className="flex justify-between items-center mb-8 px-4">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Lifecycle Audit log ({history.length})</h3>
           <button
             onClick={onClear}
-            className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors"
+            className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-rose-500 flex items-center gap-2 transition-soft"
           >
-            <Trash2 size={12} /> Clear all
+            <Trash2 size={12} strokeWidth={2} /> Wipe Database
           </button>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {[...history].sort((a, b) => b.month.localeCompare(a.month)).map(e => (
             <HistoryCard key={e.id} entry={e} onRemove={() => onRemove(e.id)} />
           ))}
         </div>
       </div>
+      
+      <style jsx global>{`
+        @media print {
+          body { background: white !important; }
+          .max-w-6xl { max-width: 100% !important; margin: 0 !important; width: 100% !important; }
+          footer, nav, header, button, .recharts-responsive-container, .print\:hidden { display: none !important; }
+          .print\:block { display: block !important; }
+          .print\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          @page { margin: 15mm; }
+        }
+      `}</style>
     </div>
   )
 }
