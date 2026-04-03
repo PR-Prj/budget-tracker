@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Settings, MonthType, SpecialMonth, HistoryEntry, AdditionalPayment } from '@/lib/types'
 import { calcCutoff15, calcCutoff30, CutoffResult, peso, getMonthsToGoal, buildHistoryEntry } from '@/lib/calc'
-import { TrendingUp, PiggyBank, Wallet, Receipt, Plus, ChevronRight, Save } from 'lucide-react'
+import { TrendingUp, PiggyBank, Wallet, Receipt, Plus, ChevronRight, Save, Calendar } from 'lucide-react'
 
 interface Props {
   settings: Settings
@@ -188,6 +188,25 @@ export default function Dashboard({ settings, onSaveHistory }: Props) {
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     )
   }
+
+  // Projection logic: strictly alternate starting from current dashboard MonthType
+  const alternateType = monthType === 'heavy' ? 'light' : 'heavy'
+  const projection = [0, 1, 2, 3, 4, 5].map(i => {
+    const isCurrent = i === 0
+    const mType = (i % 2 === 0) ? monthType : alternateType
+    const sMonths = isCurrent ? specialMonths : []
+    const pr15 = calcCutoff15(settings, mType, sMonths)
+    const pr30 = calcCutoff30(settings, mType, sMonths)
+    const ms = pr15.savings + pr30.savings
+    return { 
+      label: `Month ${i + 1}`, 
+      type: mType, 
+      s15: pr15.savings, 
+      s30: pr30.savings, 
+      monthly: ms,
+      pSpecial: isCurrent && specialMonths.length > 0
+    }
+  })
 
   return (
     <div className="space-y-6">
@@ -398,41 +417,45 @@ export default function Dashboard({ settings, onSaveHistory }: Props) {
 
       <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm overflow-hidden mb-10">
         <div className="flex items-center justify-between mb-6">
-           <h3 className="font-bold text-gray-800">6-Month Savings Projection</h3>
-           <div className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider">Based on average</div>
+           <div className="flex items-center gap-2">
+             <Calendar size={20} className="text-indigo-500" />
+             <h3 className="font-bold text-gray-800">Financial Growth Projection</h3>
+           </div>
+           <div className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider">Accurate Estimate</div>
         </div>
         <div className="overflow-x-auto -mx-6 px-6 pb-2 scrollbar-hide">
           <table className="w-full text-sm min-w-[650px]">
             <thead>
               <tr className="border-b border-gray-100">
-                {['Month', 'Type', '15th savings', '30th savings', 'Monthly total', 'Cumulative'].map(h => (
-                  <th key={h} className="text-left pb-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">{h}</th>
+                {['Month', 'Type', 'Status', '15th Savings', '30th Savings', 'Monthly Total', 'Cumulative'].map(h => (
+                  <th key={h} className="text-left pb-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest pr-4">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {[true, false, true, false, true, false].map((heavy, i) => {
-                const pr15 = calcCutoff15(settings, heavy ? 'heavy' : 'light', [])
-                const pr30 = calcCutoff30(settings, heavy ? 'heavy' : 'light', [])
-                const ms = pr15.savings + pr30.savings
-                const cum = [true, false, true, false, true, false]
+              {projection.map((month, i) => {
+                const cum = projection
                   .slice(0, i + 1)
-                  .reduce((acc, h) => {
-                    const c15 = calcCutoff15(settings, h ? 'heavy' : 'light', [])
-                    const c30 = calcCutoff30(settings, h ? 'heavy' : 'light', [])
-                    return acc + c15.savings + c30.savings
-                  }, 0)
+                  .reduce((acc, m) => acc + m.monthly, 0)
+                
                 return (
                   <tr key={i} className="border-b border-gray-50 last:border-0 group hover:bg-gray-50/50 transition-colors">
-                    <td className="py-4 text-gray-800 font-semibold italic opacity-80">Month {i + 1}</td>
+                    <td className="py-4 text-gray-800 font-semibold italic opacity-80">{month.label}</td>
                     <td className="py-4">
-                      <span className={`text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-tighter ${heavy ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                        {heavy ? 'heavy' : 'light'}
+                      <span className={`text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-tighter ${month.type === 'heavy' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                        {month.type}
                       </span>
                     </td>
-                    <td className="py-4 text-gray-500 font-medium">{peso(pr15.savings)}</td>
-                    <td className="py-4 text-gray-500 font-medium">{peso(pr30.savings)}</td>
-                    <td className="py-4 font-bold text-blue-600 text-sm">{peso(ms)}</td>
+                    <td className="py-4">
+                      {month.pSpecial ? (
+                        <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full font-bold uppercase uppercase">Special Bonus</span>
+                      ) : (
+                        <span className="text-[9px] text-gray-300 font-medium">Standard</span>
+                      )}
+                    </td>
+                    <td className="py-4 text-gray-500 font-medium">{peso(month.s15)}</td>
+                    <td className="py-4 text-gray-500 font-medium">{peso(month.s30)}</td>
+                    <td className="py-4 font-bold text-blue-600 text-sm">{peso(month.monthly)}</td>
                     <td className="py-4 font-bold text-emerald-600 text-base">{peso(cum)}</td>
                   </tr>
                 )
