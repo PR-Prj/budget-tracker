@@ -6,12 +6,14 @@ export interface CustomExpense {
   name: string
   amount: number
   isHeavyOnly: boolean
+  wallet?: string
 }
 
 export interface CutoffConfig {
   income: number
   baseExpenses: Record<string, number>
   heavyExpenses: Record<string, number>
+  expenseWallets: Record<string, string> // maps expense name to wallet name
   customExpenses: CustomExpense[]
 }
 
@@ -27,6 +29,7 @@ export interface StudentConfig {
   schoolDaysPerWeek: number
   baseDailyExpenses?: Record<string, number>
   weeklySchoolExtra?: Record<string, number>
+  expenseWallets?: Record<string, string>
   customExpenses?: CustomExpense[]
   savingsGoal?: number
   savingsSplit?: number
@@ -49,7 +52,7 @@ export interface HistoryEntry {
   specialMonth: SpecialMonth
   cutoff15: {
     income: number
-    expenses: { name: string; amount: number; category: string }[]
+    expenses: { name: string; amount: number; category: string; wallet?: string }[]
     totalExpenses: number
     remaining: number
     savings: number
@@ -57,7 +60,7 @@ export interface HistoryEntry {
   }
   cutoff30: {
     income: number
-    expenses: { name: string; amount: number; category: string }[]
+    expenses: { name: string; amount: number; category: string; wallet?: string }[]
     totalExpenses: number
     remaining: number
     savings: number
@@ -90,6 +93,7 @@ export const DEFAULT_SETTINGS: Settings = {
       'Food': 900,
       'Fare': 1100,
     },
+    expenseWallets: {},
     customExpenses: [],
   },
   cutoff30: {
@@ -107,6 +111,7 @@ export const DEFAULT_SETTINGS: Settings = {
       'Food': 900,
       'Fare': 1100,
     },
+    expenseWallets: {},
     customExpenses: [],
   },
   studentConfig: {

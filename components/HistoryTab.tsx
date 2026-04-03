@@ -36,22 +36,24 @@ function HistoryCard({ entry, onRemove }: { entry: HistoryEntry; onRemove: () =>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right hidden sm:block">
-            <div className="text-xs text-gray-400">Savings</div>
-            <div className="font-bold text-blue-600">{peso(entry.totalSavings)}</div>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="text-right">
+            <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-tighter">Savings</div>
+            <div className="text-sm sm:text-base font-semibold text-blue-600 leading-none">{peso(entry.totalSavings)}</div>
           </div>
-          <div className="text-right hidden sm:block">
-            <div className="text-xs text-gray-400">Expenses</div>
-            <div className="font-bold text-red-500">{peso(entry.totalExpenses)}</div>
+          <div className="text-right hidden xs:block">
+            <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-tighter">Spent</div>
+            <div className="text-sm sm:text-base font-semibold text-red-500 leading-none">{peso(entry.totalExpenses)}</div>
           </div>
-          <button
-            onClick={e => { e.stopPropagation(); onRemove() }}
-            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-          >
-            <Trash2 size={14} />
-          </button>
-          {expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+          <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 ml-1">
+            <button
+              onClick={e => { e.stopPropagation(); onRemove() }}
+              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+            >
+              <Trash2 size={15} />
+            </button>
+            {expanded ? <ChevronUp size={18} className="text-indigo-400" /> : <ChevronDown size={18} className="text-gray-300" />}
+          </div>
         </div>
       </div>
 
@@ -141,7 +143,7 @@ export default function HistoryTab({ history, onRemove, onClear, savingsGoal }: 
         ].map(m => (
           <div key={m.label} className="bg-white border border-gray-200 rounded-2xl p-4">
             <div className="text-xs text-gray-500 mb-1">{m.label}</div>
-            <div className={`text-xl font-bold ${m.color}`}>{m.value}</div>
+            <div className={`text-xl font-semibold ${m.color}`}>{m.value}</div>
           </div>
         ))}
       </div>

@@ -13,6 +13,7 @@ export interface ExpenseItem {
   name: string
   amount: number
   category: 'base' | 'heavy' | 'custom' | 'additional'
+  wallet?: string
 }
 
 export interface CutoffResult {
@@ -34,18 +35,37 @@ export function calcCutoff15(
   const expenses: ExpenseItem[] = []
 
   Object.entries(cfg.baseExpenses).forEach(([name, amount]) => {
-    if (amount > 0) expenses.push({ name, amount, category: 'base' })
+    if (amount > 0) {
+      expenses.push({ 
+        name, 
+        amount, 
+        category: 'base', 
+        wallet: cfg.expenseWallets?.[name] 
+      })
+    }
   })
 
   if (monthType === 'heavy') {
     Object.entries(cfg.heavyExpenses).forEach(([name, amount]) => {
-      if (amount > 0) expenses.push({ name, amount, category: 'heavy' })
+      if (amount > 0) {
+        expenses.push({ 
+          name, 
+          amount, 
+          category: 'heavy', 
+          wallet: cfg.expenseWallets?.[name] 
+        })
+      }
     })
   }
 
   cfg.customExpenses.forEach(e => {
     if (e.amount > 0 && e.name && (monthType === 'heavy' || !e.isHeavyOnly)) {
-      expenses.push({ name: e.name, amount: e.amount, category: 'custom' })
+      expenses.push({ 
+        name: e.name, 
+        amount: e.amount, 
+        category: 'custom',
+        wallet: e.wallet 
+      })
     }
   })
 
@@ -74,18 +94,37 @@ export function calcCutoff30(
   const expenses: ExpenseItem[] = []
 
   Object.entries(cfg.baseExpenses).forEach(([name, amount]) => {
-    if (amount > 0) expenses.push({ name, amount, category: 'base' })
+    if (amount > 0) {
+      expenses.push({ 
+        name, 
+        amount, 
+        category: 'base', 
+        wallet: cfg.expenseWallets?.[name] 
+      })
+    }
   })
 
   if (monthType === 'heavy') {
     Object.entries(cfg.heavyExpenses).forEach(([name, amount]) => {
-      if (amount > 0) expenses.push({ name, amount, category: 'heavy' })
+      if (amount > 0) {
+        expenses.push({ 
+          name, 
+          amount, 
+          category: 'heavy', 
+          wallet: cfg.expenseWallets?.[name] 
+        })
+      }
     })
   }
 
   cfg.customExpenses.forEach(e => {
     if (e.amount > 0 && e.name && (monthType === 'heavy' || !e.isHeavyOnly)) {
-      expenses.push({ name: e.name, amount: e.amount, category: 'custom' })
+      expenses.push({ 
+        name: e.name, 
+        amount: e.amount, 
+        category: 'custom',
+        wallet: e.wallet 
+      })
     }
   })
 
@@ -122,7 +161,12 @@ export function buildHistoryEntry(
     specialMonth,
     cutoff15: {
       income: c15.income,
-      expenses: c15.expenses.map(e => ({ name: e.name, amount: e.amount, category: e.category })),
+      expenses: c15.expenses.map(e => ({ 
+        name: e.name, 
+        amount: e.amount, 
+        category: e.category,
+        wallet: e.wallet 
+      })),
       totalExpenses: c15.totalExpenses,
       remaining: c15.remaining,
       savings: c15.savings,
@@ -130,7 +174,12 @@ export function buildHistoryEntry(
     },
     cutoff30: {
       income: c30.income,
-      expenses: c30.expenses.map(e => ({ name: e.name, amount: e.amount, category: e.category })),
+      expenses: c30.expenses.map(e => ({ 
+        name: e.name, 
+        amount: e.amount, 
+        category: e.category,
+        wallet: e.wallet 
+      })),
       totalExpenses: c30.totalExpenses,
       remaining: c30.remaining,
       savings: c30.savings,

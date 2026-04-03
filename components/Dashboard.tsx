@@ -23,23 +23,31 @@ function CutoffCard({ title, result, isHeavy }: { title: string; result: CutoffR
   const remColor = result.remaining < 0 ? 'text-red-500' : result.remaining < 500 ? 'text-amber-500' : 'text-emerald-500'
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5">
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
         <h3 className="font-semibold text-gray-800">{title}</h3>
-        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${isHeavy ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+        <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${isHeavy ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
           {isHeavy ? 'heavy' : 'light'}
         </span>
       </div>
 
-      <div className="text-xs text-gray-500 mb-3">
-        Income: <span className="font-semibold text-gray-800 text-sm">{peso(result.income)}</span>
+      <div className="flex items-center justify-between mb-4 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100">
+        <span className="text-xs text-gray-500 font-medium">Income for this cutoff</span>
+        <span className="font-bold text-gray-900 text-sm">{peso(result.income)}</span>
       </div>
 
-      <div className="space-y-0">
+      <div className="space-y-0.5">
         {result.expenses.map((e, i) => (
-          <div key={i} className="flex justify-between items-center py-1.5 border-t border-gray-50 first:border-t-0">
-            <span className="text-sm text-gray-600">{e.name}</span>
-            <span className={`text-sm font-medium ${
+          <div key={i} className="flex justify-between items-center py-2.5 border-t border-gray-50 first:border-t-0 hover:bg-gray-50/30 transition-colors px-1 rounded-lg">
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm text-gray-800 font-semibold truncate leading-tight">{e.name}</span>
+              {e.wallet && (
+                <span className="text-[9px] font-bold text-blue-500 uppercase tracking-tighter leading-none mt-0.5">
+                  via {e.wallet}
+                </span>
+              )}
+            </div>
+            <span className={`text-sm font-semibold ml-2 shrink-0 ${
               e.category === 'additional' ? 'text-rose-500' :
               e.category === 'custom' ? 'text-violet-500' :
               e.category === 'heavy' ? 'text-amber-600' : 'text-gray-700'
@@ -50,22 +58,24 @@ function CutoffCard({ title, result, isHeavy }: { title: string; result: CutoffR
         ))}
       </div>
 
-      <div className="mt-3 pt-3 border-t border-gray-200 space-y-1.5">
+      <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="font-medium text-gray-700">Total expenses</span>
+          <span className="font-medium text-gray-500">Subtotal expenses</span>
           <span className="font-semibold text-red-500">{peso(result.totalExpenses)}</span>
         </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Remaining</span>
+        <div className="flex justify-between text-sm pt-1.5 border-t border-dashed border-gray-200">
+          <span className="text-gray-500">Remaining surplus</span>
           <span className={`font-semibold ${remColor}`}>{peso(result.remaining)}</span>
         </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">→ Savings</span>
-          <span className="font-semibold text-blue-600">{peso(result.savings)}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">→ Buffer</span>
-          <span className="font-semibold text-emerald-600">{peso(result.buffer)}</span>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="bg-blue-50/50 p-2 rounded-xl flex flex-col border border-blue-100/50">
+            <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1 leading-none">Savings</span>
+            <span className="text-sm font-bold text-blue-600 leading-tight">{peso(result.savings)}</span>
+          </div>
+          <div className="bg-emerald-50/50 p-2 rounded-xl flex flex-col border border-emerald-100/50">
+            <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mb-1 leading-none">Buffer</span>
+            <span className="text-sm font-bold text-emerald-600 leading-tight">{peso(result.buffer)}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -85,7 +95,7 @@ function MultiSelectAdditional({
     <div className="relative">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-between gap-2 px-4 py-2 bg-white border rounded-xl text-sm font-bold transition-all shadow-sm ${
+        className={`flex items-center justify-between gap-2 px-4 py-2 bg-white border rounded-xl text-sm font-semibold transition-all shadow-sm ${
           selected.length > 0 ? 'border-rose-200 bg-rose-50/30 text-rose-600' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
         }`}
       >
@@ -132,7 +142,7 @@ function MultiSelectAdditional({
               <div className="border-t border-gray-100 p-2 bg-gray-50/80">
                 <button 
                   onClick={() => { selected.forEach(id => onToggle(id)); setIsOpen(false); }}
-                  className="w-full py-1.5 text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors uppercase tracking-wider"
+                  className="w-full py-1.5 text-xs font-semibold text-rose-500 hover:text-rose-600 transition-colors uppercase tracking-wider"
                 >
                   Deselect all
                 </button>
@@ -154,10 +164,12 @@ export default function Dashboard({ settings, onSaveHistory }: Props) {
 
   const r15 = calcCutoff15(settings, monthType, specialMonths)
   const r30 = calcCutoff30(settings, monthType, specialMonths)
+  
   const totalSavings = r15.savings + r30.savings
   const totalExpenses = r15.totalExpenses + r30.totalExpenses
   const totalIncome = r15.income + r30.income
-  const totalBuffer = (r15.remaining - r15.savings) + (r30.remaining - r30.savings)
+  const totalBuffer = r15.buffer + r30.buffer
+  
   const monthsToGoal = getMonthsToGoal(settings.savingsGoal, totalSavings)
   const goalPct = settings.savingsGoal > 0 ? Math.min(100, Math.round((totalSavings * 3 / settings.savingsGoal) * 100)) : 0
 
@@ -179,28 +191,45 @@ export default function Dashboard({ settings, onSaveHistory }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Summary metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Monthly income', value: peso(totalIncome), icon: Wallet, color: 'text-gray-900', bg: 'bg-white' },
+          { label: 'Monthly expenses', value: peso(totalExpenses), icon: Receipt, color: 'text-rose-500', bg: 'bg-rose-50/20' },
+          { label: 'Monthly savings', value: peso(totalSavings), icon: PiggyBank, color: 'text-blue-600', bg: 'bg-blue-50/20' },
+          { label: 'Monthly buffer', value: peso(totalBuffer), icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50/20' },
+        ].map(m => (
+          <div key={m.label} className={`${m.bg} border border-gray-200 rounded-2xl p-4 shadow-sm group hover:border-gray-300 transition-all`}>
+            <div className="flex items-center gap-2 mb-1 opacity-70 group-hover:opacity-100 transition-opacity">
+              <m.icon size={14} className="text-gray-400" />
+              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">{m.label}</span>
+            </div>
+            <div className={`text-xl font-bold ${m.color}`}>{m.value}</div>
+          </div>
+        ))}
+      </div>
+
       {/* Controls */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Current month settings</h2>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-3 items-center">
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+        <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Current Month configuration</h2>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex flex-wrap gap-4 items-center">
             {/* Month type */}
-            <div className="flex rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+            <div className="flex p-1 bg-gray-50 border border-gray-100 rounded-xl shadow-inner shadow-gray-100">
               <button
                 onClick={() => setMonthType('heavy')}
-                className={`px-4 py-2 text-sm font-bold transition-all ${monthType === 'heavy' ? 'bg-amber-500 text-white shadow-inner' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${monthType === 'heavy' ? 'bg-white text-amber-600 shadow-sm border border-amber-100' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 Heavy Budget
               </button>
               <button
                 onClick={() => setMonthType('light')}
-                className={`px-4 py-2 text-sm font-bold transition-all ${monthType === 'light' ? 'bg-emerald-500 text-white shadow-inner' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${monthType === 'light' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-100' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 Light Budget
               </button>
             </div>
 
-            {/* Special months Multi-select Dropdown */}
             <MultiSelectAdditional 
               payments={settings.additionalPayments}
               selected={specialMonths}
@@ -208,175 +237,176 @@ export default function Dashboard({ settings, onSaveHistory }: Props) {
             />
           </div>
 
-          {/* Save to history */}
-          <div className="flex items-center gap-2">
-            <select
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white text-gray-700 outline-none focus:ring-2 focus:ring-blue-300"
-            >
-              {MONTHS.map(m => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
-            <select
-              value={selectedYear}
-              onChange={e => setSelectedYear(Number(e.target.value))}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white text-gray-700 outline-none focus:ring-2 focus:ring-blue-300"
-            >
-              {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex bg-gray-50 border border-gray-100 rounded-xl overflow-hidden p-1">
+              <select
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(e.target.value)}
+                className="bg-transparent px-2 py-1 text-xs font-semibold text-gray-700 focus:outline-none border-none outline-none"
+              >
+                {MONTHS.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+              <select
+                value={selectedYear}
+                onChange={e => setSelectedYear(Number(e.target.value))}
+                className="bg-transparent px-2 py-1 text-xs font-semibold text-gray-700 focus:outline-none border-none outline-none"
+              >
+                {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
             <button
               onClick={handleSave}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-sm ${saved ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'}`}
+              className="px-5 py-2.5 text-xs font-bold rounded-xl transition-all shadow-lg active:scale-95 bg-blue-600 text-white hover:bg-blue-700 shadow-blue-100 disabled:bg-emerald-500 disabled:shadow-emerald-100 disabled:opacity-100 flex items-center gap-2"
+              disabled={saved}
             >
-              <Save size={14} />
-              {saved ? 'Saved!' : 'Save record'}
+              {saved ? <><PiggyBank size={14} /> Month Saved!</> : <><Save size={14} /> Save to history</>}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Summary metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Monthly income', value: peso(totalIncome), icon: Wallet, color: 'text-gray-700' },
-          { label: 'Monthly expenses', value: peso(totalExpenses), icon: Receipt, color: 'text-red-500' },
-          { label: 'Monthly savings', value: peso(totalSavings), icon: PiggyBank, color: 'text-blue-600' },
-          { label: 'Monthly buffer', value: peso(totalBuffer), icon: TrendingUp, color: 'text-emerald-600' },
-        ].map(m => (
-          <div key={m.label} className="bg-white border border-gray-200 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <m.icon size={14} className="text-gray-400" />
-              <span className="text-xs text-gray-500">{m.label}</span>
+      {/* Cutoff columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <CutoffCard title="15th Cutoff" result={r15} isHeavy={monthType === 'heavy'} />
+          
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+            <div className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-4">Wallet distribution (15th)</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {Object.entries(r15.expenses.reduce((acc, e) => {
+                const w = e.wallet || 'Other/Cash'
+                acc[w] = (acc[w] || 0) + e.amount
+                return acc
+              }, {} as Record<string, number>)).sort((a,b) => b[1]-a[1]).map(([wallet, amount]) => (
+                <div key={wallet} className="flex flex-col p-3 bg-gray-50 border border-gray-100 rounded-xl hover:border-blue-200 transition-colors">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase mb-1">{wallet}</span>
+                  <span className="text-sm font-bold text-gray-800">{peso(amount)}</span>
+                </div>
+              ))}
             </div>
-            <div className={`text-xl font-bold ${m.color}`}>{m.value}</div>
           </div>
-        ))}
-      </div>
-
-      {/* Cutoff breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <CutoffCard title="15th cutoff" result={r15} isHeavy={monthType === 'heavy'} />
-        <CutoffCard title="30th cutoff" result={r30} isHeavy={monthType === 'heavy'} />
-      </div>
-
-      {/* Expense legend */}
-      <div className="flex flex-wrap gap-3 text-xs">
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-gray-400 inline-block"></span>Base expense</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block"></span>Heavy month only</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-violet-400 inline-block"></span>Custom expense</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-rose-400 inline-block"></span>Additional payment</span>
-      </div>
-
-      {/* Savings goal */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-800">Savings goal progress</h3>
-          <span className="text-sm text-gray-500">Goal: {peso(settings.savingsGoal)}</span>
         </div>
-        <div className="w-full bg-gray-100 rounded-full h-3 mb-2">
-          <div
-            className="bg-emerald-500 h-3 rounded-full transition-all duration-500"
-            style={{ width: `${goalPct}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-sm text-gray-500">
-          <span>{peso(totalSavings * 3)} projected in 3 months</span>
-          <span>{goalPct}% of goal</span>
-        </div>
-        {r15.remaining < 0 && (
-          <div className="mt-2 p-3 bg-red-50 rounded-xl text-sm text-red-600">
-            ⚠ 15th cutoff is over budget by {peso(Math.abs(r15.remaining))}. Adjust your expenses in Settings.
+
+        <div className="space-y-4">
+          <CutoffCard title="30th Cutoff" result={r30} isHeavy={monthType === 'heavy'} />
+          
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+            <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-4">Wallet distribution (30th)</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {Object.entries(r30.expenses.reduce((acc, e) => {
+                const w = e.wallet || 'Other/Cash'
+                acc[w] = (acc[w] || 0) + e.amount
+                return acc
+              }, {} as Record<string, number>)).sort((a,b) => b[1]-a[1]).map(([wallet, amount]) => (
+                <div key={wallet} className="flex flex-col p-3 bg-gray-50 border border-gray-100 rounded-xl hover:border-emerald-200 transition-colors">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase mb-1">{wallet}</span>
+                  <span className="text-sm font-bold text-gray-800">{peso(amount)}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        )}
-        {r15.remaining >= 0 && r15.remaining < 500 && (
-          <div className="mt-2 p-3 bg-amber-50 rounded-xl text-sm text-amber-700">
-            ⚠ 15th cutoff buffer is low ({peso(r15.remaining)} remaining). Consider trimming one expense.
-          </div>
-        )}
+        </div>
       </div>
 
-      {/* Smart Savings Insights */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Analysis legend</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Base Monthly', color: 'bg-gray-400' },
+            { label: 'Heavy Only', color: 'bg-amber-400' },
+            { label: 'Custom Item', color: 'bg-violet-400' },
+            { label: 'Special Payment', color: 'bg-rose-400' },
+          ].map(l => (
+            <div key={l.label} className="flex items-center gap-2">
+              <div className={`w-3.5 h-3.5 rounded-[4px] ${l.color} shadow-sm shrink-0`} />
+              <span className="text-[11px] font-semibold text-gray-700">{l.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Smart Analysis Insights */}
       <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+          <div className="p-2.5 bg-blue-100 text-blue-600 rounded-2xl shadow-inner shadow-blue-200/50">
             <span className="text-xl">💡</span>
           </div>
           <div>
-            <h3 className="font-bold text-gray-800">Worker Smart Insights</h3>
-            <p className="text-xs text-gray-400 font-medium">Data-driven tips for your financial goal</p>
+            <h3 className="font-bold text-gray-800">Portfolio Strategy Insights</h3>
+            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Reviewing your current 60/30/10 compliance</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Goal Insight */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* 60/30/10 Rule Tracker */}
+          <div className="bg-gray-50/80 rounded-2xl p-5 border border-gray-100">
+            <div className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <TrendingUp size={16} className="text-blue-500" />
+              60/30/10 Rule Check
+            </div>
+            <div className="space-y-4">
+              {[
+                { label: 'Expenses', actual: (totalExpenses / totalIncome) * 100, target: 60, color: 'bg-rose-400' },
+                { label: 'Savings', actual: (totalSavings / totalIncome) * 100, target: 30, color: 'bg-blue-400' },
+                { label: 'Buffer', actual: (totalBuffer / totalIncome) * 100, target: 10, color: 'bg-emerald-400' },
+              ].map(item => (
+                <div key={item.label} className="space-y-1.5">
+                  <div className="flex justify-between items-end text-[10px] font-bold uppercase tracking-tight">
+                    <span className="text-gray-500">{item.label}</span>
+                    <span className={item.actual > item.target ? 'text-rose-500' : 'text-emerald-500'}>
+                      {Math.round(item.actual)}% / {item.target}%
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-200/50 rounded-full overflow-hidden p-0.5">
+                    <div 
+                      className={`h-full ${item.color} rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(0,0,0,0.1)]`} 
+                      style={{ width: `${Math.min(100, item.actual)}%` }} 
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="bg-blue-50/50 rounded-2xl p-5 border border-blue-100/50">
             <div className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
-              <TrendingUp size={16} className="text-blue-500" />
+              <PiggyBank size={16} className="text-blue-500" />
               Goal Trajectory
             </div>
-            <p className="text-sm text-blue-900/70 leading-relaxed">
-              Based on your monthly savings of <span className="font-bold text-blue-700">{peso(totalSavings)}</span>, 
-              you are on track to hit your <span className="font-bold text-gray-800">{peso(settings.savingsGoal)}</span> goal in about 
+            <p className="text-sm text-blue-900/60 leading-relaxed font-medium">
+              Saving <span className="font-bold text-blue-700">{peso(totalSavings)}</span> monthly puts you at your <span className="font-bold text-gray-800">{peso(settings.savingsGoal)}</span> target in 
               <span className="font-bold text-blue-700"> {monthsToGoal} months</span>.
             </p>
           </div>
 
-          {/* Expense Optimization */}
-          {(() => {
-            const allBase = [
-              ...Object.entries(settings.cutoff15.baseExpenses),
-              ...Object.entries(settings.cutoff30.baseExpenses)
-            ].sort((a, b) => b[1] - a[1])
-            
-            if (allBase.length === 0) return null
-            const [name, amount] = allBase[0]
-            const potentialSave = amount * 0.1 // 10% reduction
-            const newMonthlySavings = totalSavings + potentialSave
-            const newTimeline = getMonthsToGoal(settings.savingsGoal, newMonthlySavings)
-            const monthsSaved = (monthsToGoal || 0) - (newTimeline || 0)
-
-            return (
-              <div className="bg-violet-50/50 rounded-2xl p-5 border border-violet-100/50">
-                <div className="text-sm font-bold text-violet-800 mb-3 flex items-center gap-2">
-                  <Receipt size={16} className="text-violet-500" />
-                  Expense Lean-down
-                </div>
-                <p className="text-sm text-violet-900/70 leading-relaxed">
-                  Trimming <span className="font-bold text-violet-700">{name}</span> by just 10% (<span className="font-bold text-violet-700">{peso(potentialSave)}</span>) 
-                  would speed up your goal by <span className="font-bold text-violet-700">{(monthsSaved && monthsSaved > 0) ? monthsSaved : 0} month{monthsSaved !== 1 ? 's' : ''}</span>.
-                </p>
+          <div className="bg-emerald-50/50 rounded-2xl p-5 border border-emerald-100/50 flex flex-col justify-between">
+            <div>
+              <div className="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2">
+                <Wallet size={16} className="text-emerald-500" />
+                Strategic Split
               </div>
-            )
-          })()}
-
-          {/* Split Strategy */}
-          <div className="bg-emerald-50/50 rounded-2xl p-5 border border-emerald-100/50">
-            <div className="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2">
-              <PiggyBank size={16} className="text-emerald-500" />
-              Split Strategy
+              <p className="text-sm text-emerald-900/60 leading-relaxed font-medium">
+                To reach exactly 30% savings with your current expenses, adjust your **Savings Split** to roughly 
+                <span className="font-bold text-emerald-700"> {Math.round((0.3 * totalIncome / (totalIncome - totalExpenses)) * 100)}%</span>.
+              </p>
             </div>
-            <p className="text-sm text-emerald-900/70 leading-relaxed">
-              Your current <span className="font-bold text-emerald-700">{settings.savingsSplit}%</span> savings split is generating 
-              <span className="font-bold text-emerald-700"> {peso(totalBuffer)}</span> in monthly buffer. 
-              {settings.savingsSplit < 80 ? ' Increasing split to 80% could boost monthly savings by ' : ' Good job! Your buffer is currently '}
-              <span className="font-bold text-emerald-700">{settings.savingsSplit < 80 ? peso(totalBuffer * 0.3) : 'well-optimized'}.</span>
-            </p>
           </div>
         </div>
       </div>
 
-
-      {/* 6-month projection table */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <h3 className="font-semibold text-gray-800 mb-4">6-month projection</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+      <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm overflow-hidden mb-10">
+        <div className="flex items-center justify-between mb-6">
+           <h3 className="font-bold text-gray-800">6-Month Savings Projection</h3>
+           <div className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider">Based on average</div>
+        </div>
+        <div className="overflow-x-auto -mx-6 px-6 pb-2 scrollbar-hide">
+          <table className="w-full text-sm min-w-[650px]">
             <thead>
               <tr className="border-b border-gray-100">
                 {['Month', 'Type', '15th savings', '30th savings', 'Monthly total', 'Cumulative'].map(h => (
-                  <th key={h} className="text-left pb-2 text-xs font-semibold text-gray-400 uppercase tracking-wide pr-4">{h}</th>
+                  <th key={h} className="text-left pb-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -393,17 +423,17 @@ export default function Dashboard({ settings, onSaveHistory }: Props) {
                     return acc + c15.savings + c30.savings
                   }, 0)
                 return (
-                  <tr key={i} className="border-b border-gray-50 last:border-0">
-                    <td className="py-2.5 pr-4 text-gray-700">Month {i + 1}</td>
-                    <td className="py-2.5 pr-4">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${heavy ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                  <tr key={i} className="border-b border-gray-50 last:border-0 group hover:bg-gray-50/50 transition-colors">
+                    <td className="py-4 text-gray-800 font-semibold italic opacity-80">Month {i + 1}</td>
+                    <td className="py-4">
+                      <span className={`text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase tracking-tighter ${heavy ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
                         {heavy ? 'heavy' : 'light'}
                       </span>
                     </td>
-                    <td className="py-2.5 pr-4 text-gray-600">{peso(pr15.savings)}</td>
-                    <td className="py-2.5 pr-4 text-gray-600">{peso(pr30.savings)}</td>
-                    <td className="py-2.5 pr-4 font-semibold text-blue-600">{peso(ms)}</td>
-                    <td className="py-2.5 font-bold text-emerald-600">{peso(cum)}</td>
+                    <td className="py-4 text-gray-500 font-medium">{peso(pr15.savings)}</td>
+                    <td className="py-4 text-gray-500 font-medium">{peso(pr30.savings)}</td>
+                    <td className="py-4 font-bold text-blue-600 text-sm">{peso(ms)}</td>
+                    <td className="py-4 font-bold text-emerald-600 text-base">{peso(cum)}</td>
                   </tr>
                 )
               })}
