@@ -560,204 +560,116 @@ export default function Dashboard({ settings, history, onSaveHistory }: Props) {
         </div>
       </div>
 
-      {/* Analysis legend */}
-      <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm shadow-slate-200/50">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 items-center">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Categorization Key</span>
-          {[
-            { label: 'Standard', color: 'bg-slate-300' },
-            { label: 'Heavy Only', color: 'bg-amber-400' },
-            { label: 'Custom Item', color: 'bg-violet-400' },
-            { label: 'Bonus/Special', color: 'bg-rose-400' },
-          ].map(l => (
-            <div key={l.label} className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${l.color} shadow-sm shrink-0`} />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{l.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+ 
 
-      {/* Smart Analysis Insights */}
-      <div className="bg-white border border-slate-200 rounded-[40px] p-8 shadow-sm shadow-slate-200/50">
-        <div className="flex items-center gap-4 mb-10 pb-6 border-b border-slate-100">
-          <div className="p-3.5 bg-slate-50 text-slate-900 rounded-2xl border border-slate-100 shadow-inner">
-             <TrendingUp size={24} strokeWidth={1.5} />
-          </div>
-          <div>
-            <h3 className="text-xl font-black text-slate-900 tracking-tight">Portfolio Strategy Insights</h3>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Real-time analysis of your financial health</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {/* 60/30/10 Rule Tracker */}
-          <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100 space-y-6">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-900">Health Check (60/30/10)</span>
-              <Info size={14} className="text-slate-400" />
-            </div>
-            <div className="space-y-5">
-              {[
-                { label: 'Expenses', actual: (totalExpenses / totalIncome) * 100, target: 60, color: 'bg-rose-400' },
-                { label: 'Savings', actual: (totalSavings / totalIncome) * 100, target: 30, color: 'bg-primary' },
-                { label: 'Buffer', actual: (totalBuffer / totalIncome) * 100, target: 10, color: 'bg-emerald-400' },
-              ].map(item => (
-                <div key={item.label} className="space-y-2">
-                  <div className="flex justify-between items-end text-[10px] font-bold uppercase tracking-widest">
-                    <span className="text-slate-400">{item.label}</span>
-                    <span className={item.actual > item.target && item.label === 'Expenses' ? 'text-rose-500' : 'text-slate-900'}>
-                      {Math.round(item.actual)}% <span className="text-slate-300 mx-1">/</span> {item.target}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full ${item.color} rounded-full transition-all duration-1000 ease-out`} 
-                      style={{ width: `${Math.min(100, item.actual)}%` }} 
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-primary/[0.03] rounded-3xl p-6 border border-primary/10 flex flex-col justify-between">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-primary">
-                <PiggyBank size={18} strokeWidth={2} />
-                <span className="text-xs font-bold uppercase tracking-wider">Goal Trajectory</span>
-              </div>
-              <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                Saving <span className="font-bold text-slate-900">{peso(totalSavings)}</span> per cycle puts you at your <span className="font-bold text-slate-900">{peso(settings.savingsGoal)}</span> target in:
-              </p>
-            </div>
-            <div className="mt-4">
-               <span className="text-3xl font-black text-primary">{monthsToGoal}</span>
-               <span className="text-sm font-bold text-slate-400 ml-2">Months</span>
-            </div>
-          </div>
-
-          <div className="bg-emerald-400/[0.03] rounded-3xl p-6 border border-emerald-400/10 flex flex-col justify-between">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-emerald-600">
-                <Coins size={18} strokeWidth={2} />
-                <span className="text-xs font-bold uppercase tracking-wider">Strategic Split</span>
-              </div>
-              <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                To maintain a perfect 30% savings rate with your current expense load, your configuration should be set to:
-              </p>
-            </div>
-            <div className="mt-4">
-               <span className="text-3xl font-black text-emerald-600">
-                 {Math.round((0.3 * totalIncome / (totalIncome - totalExpenses)) * 100)}%
-               </span>
-               <span className="text-sm font-bold text-slate-400 ml-2">Split Rate</span>
-            </div>
-          </div>
-
-          {/* Savings Jar Allocation */}
-          {settings.savingsJars && settings.savingsJars.length > 0 && (
-            <div className="bg-slate-50/80 rounded-3xl p-8 border border-slate-100 col-span-1 md:col-span-2 lg:col-span-3">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100">
-                    <PieChart size={18} className="text-primary" strokeWidth={2} />
-                  </div>
-                  <h4 className="font-bold text-slate-900">Automated Pot Allocation</h4>
-                </div>
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white px-3 py-1.5 rounded-lg border border-slate-200">
-                  Total Monthly Savings: {peso(totalSavings)}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {settings.savingsJars.map(jar => {
-                  const amount = Math.round(totalSavings * (jar.splitPercent / 100))
-                  const pctOfTarget = jar.targetAmount > 0 ? Math.min(100, Math.round((amount / jar.targetAmount) * 100)) : 0
-                  
-                  return (
-                    <div key={jar.id} className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-primary/20 transition-soft group">
-                      <div className="flex justify-between items-start mb-4">
-                        <span className="text-xs font-bold text-slate-500 truncate pr-2 group-hover:text-slate-900 transition-soft">{jar.name}</span>
-                        <span className="text-[9px] font-black text-primary bg-primary/5 px-2 py-1 rounded shadow-sm">{jar.splitPercent}%</span>
-                      </div>
-                      <div className="space-y-4">
-                        <div className="text-xl font-black text-slate-900">{peso(amount)}</div>
-                        <div className="space-y-2">
-                           <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-tighter text-slate-400">
-                             <span>Progress</span>
-                             <span className="text-emerald-500">+{pctOfTarget}% this cycle</span>
-                           </div>
-                           <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                             <div className="h-full bg-primary/40 rounded-full" style={{ width: `${pctOfTarget}%` }} />
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+    
 
       {/* Projection table */}
-      <div className="bg-white border border-slate-200 rounded-[40px] p-8 shadow-sm shadow-slate-200/50 overflow-hidden mb-12">
-        <div className="flex items-center justify-between mb-8">
-           <div className="flex items-center gap-4">
-             <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
-               <Calendar size={20} strokeWidth={1.5} />
-             </div>
-             <h3 className="text-lg font-black text-slate-900 tracking-tight">Growth Projection (6 Months)</h3>
+      <div className="bg-white border border-slate-200 rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 shadow-sm shadow-slate-200/50 mb-12">
+        <div className="flex items-center justify-between mb-10">
+           <div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Growth Projection</h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">6-Month Financial Estimation</p>
            </div>
-           <div className="text-[10px] bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-bold uppercase tracking-[0.2em] border border-emerald-100">Verified Precision</div>
+           <div className="hidden sm:block px-4 py-2 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+             Based on Current Savings Split
+           </div>
         </div>
-        <div className="overflow-x-auto -mx-8 px-8 pb-4 scrollbar-hide">
-          <table className="w-full min-w-[700px]">
-            <thead>
-              <tr className="border-b border-slate-100">
-                {['Cycle', 'Budget Type', 'Context', 'Cycle Part 1', 'Cycle Part 2', 'Monthly', 'Balance'].map(h => (
-                  <th key={h} className="text-left pb-6 text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] pr-4">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {projection.map((month, i) => {
-                const cum = projection
+
+        <div className="space-y-1">
+          {projection.map((month, i) => {
+             const cum = projection
                   .slice(0, i + 1)
                   .reduce((acc, m) => acc + m.monthly, 0)
-                
-                return (
-                  <tr key={i} className="group hover:bg-slate-50/50 transition-soft">
-                    <td className="py-5 text-slate-400 font-bold text-xs italic group-hover:text-slate-900 transition-soft">{month.label}</td>
-                    <td className="py-5">
-                      <span className={`text-[9px] px-3 py-1.5 rounded-lg font-bold uppercase tracking-widest border ${
-                        month.type === 'heavy' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                      }`}>
-                        {month.type}
-                      </span>
-                    </td>
-                    <td className="py-5">
-                      {month.pSpecial ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                          <span className="text-[10px] text-rose-500 font-bold uppercase tracking-wider">Bonus Active</span>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-300 font-medium uppercase tracking-widest">Standard</span>
-                      )}
-                    </td>
-                    <td className="py-5 text-slate-500 font-semibold text-xs">{peso(month.s15)}</td>
-                    <td className="py-5 text-slate-500 font-semibold text-xs">{peso(month.s30)}</td>
-                    <td className="py-5 font-black text-slate-700 text-sm">{peso(month.monthly)}</td>
-                    <td className="py-5">
-                      <span className="text-base font-black text-primary tracking-tight">{peso(cum)}</span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+             
+             return (
+               <div key={i} className="group">
+                 {/* Desktop View: Sleek Horizontal List */}
+                 <div className="hidden sm:flex items-center justify-between p-5 hover:bg-slate-50 transition-soft rounded-2xl text-slate-600 border-b border-slate-50 last:border-0">
+                   <div className="flex items-center gap-6">
+                     <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-xs font-black text-slate-400 group-hover:bg-primary group-hover:text-white transition-soft">
+                       M{i + 1}
+                     </div>
+                     <div className="flex flex-col">
+                       <span className="text-base font-bold text-slate-800 tracking-tight group-hover:text-primary transition-soft">{month.label}</span>
+                       <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                            month.type === 'heavy' ? 'text-amber-600' : 'text-emerald-600'
+                          }`}>
+                            {month.type}
+                          </span>
+                          {month.pSpecial && (
+                            <>
+                              <span className="text-[9px] text-slate-300">•</span>
+                              <span className="text-[9px] text-rose-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                                <div className="w-1 h-1 rounded-full bg-rose-500" />
+                                Bonus Active
+                              </span>
+                            </>
+                          )}
+                       </div>
+                     </div>
+                   </div>
+
+                   <div className="flex items-center gap-16 text-right">
+                      <div className="hidden md:flex flex-col">
+                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Breakdown</span>
+                         <span className="text-xs font-medium text-slate-500">{peso(month.s15)} + {peso(month.s30)}</span>
+                      </div>
+                      <div className="flex flex-col w-24">
+                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Net Flow</span>
+                         <span className="text-sm font-bold text-slate-800">{peso(month.monthly)}</span>
+                      </div>
+                      <div className="flex flex-col min-w-[140px]">
+                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Balance</span>
+                         <span className="text-xl font-black text-primary tracking-tight">{peso(cum)}</span>
+                      </div>
+                   </div>
+                 </div>
+
+                 {/* Mobile View: Sleek Vertical Card */}
+                 <div className="sm:hidden bg-slate-50/50 border border-slate-100 rounded-3xl p-6 mb-4 space-y-5 hover:bg-white hover:border-primary/20 transition-soft group-hover:shadow-lg group-hover:shadow-slate-200/50">
+                    <div className="flex justify-between items-center">
+                       <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-[10px] font-black text-primary">M{i+1}</div>
+                          <span className="text-sm font-bold text-slate-800">{month.label}</span>
+                       </div>
+                       {month.pSpecial && (
+                          <span className="text-[8px] text-rose-500 font-bold uppercase tracking-wider flex items-center gap-1 border border-rose-100 bg-rose-50 px-2 py-0.5 rounded-full animate-pulse-slow">
+                            Bonus
+                          </span>
+                       )}
+                    </div>
+
+                    <div className="space-y-1">
+                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Accumulated Balance</span>
+                       <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-primary tracking-tighter">{peso(cum)}</span>
+                          <span className={`text-[10px] font-bold uppercase ${month.type === 'heavy' ? 'text-amber-500' : 'text-emerald-500'}`}>
+                            {month.type} cycle
+                          </span>
+                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6 py-4 border-y border-dashed border-slate-200">
+                       <div className="space-y-0.5">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">15th Savings</span>
+                          <span className="text-sm font-bold text-slate-700">{peso(month.s15)}</span>
+                       </div>
+                       <div className="space-y-0.5 text-right">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">30th Savings</span>
+                          <span className="text-sm font-bold text-slate-700">{peso(month.s30)}</span>
+                       </div>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Net Monthly Flow</span>
+                       <span className="text-base font-black text-slate-900">{peso(month.monthly)}</span>
+                    </div>
+                 </div>
+               </div>
+             )
+          })}
         </div>
       </div>
     </div>
