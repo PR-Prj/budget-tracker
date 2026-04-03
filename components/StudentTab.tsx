@@ -3,6 +3,8 @@ import { Settings, StudentConfig, CustomExpense } from '@/lib/types'
 import { peso } from '@/lib/calc'
 import { GraduationCap, Wallet, Utensils, Bus, BookOpen, Calendar, Coins, TrendingUp, PieChart, CreditCard, ChevronRight, PiggyBank } from 'lucide-react'
 
+import BufferIndicator from './BufferIndicator'
+
 interface Props {
   settings: Settings
 }
@@ -50,7 +52,7 @@ export default function StudentTab({ settings }: Props) {
             </div>
           </div>
           
-          <div className="flex-1 max-w-md w-full space-y-6">
+          <div className="flex-1 max-md w-full space-y-6">
             <div className="flex justify-between items-end">
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Cumulative Progress</span>
               <div className="text-right">
@@ -87,6 +89,8 @@ export default function StudentTab({ settings }: Props) {
           </div>
         ))}
       </div>
+
+      <BufferIndicator totalBuffer={weeklyActualBuffer} days={7} label="Weekly" />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         {/* Daily Breakdown */}

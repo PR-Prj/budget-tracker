@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { Settings, MonthType, SpecialMonth, HistoryEntry, AdditionalPayment, SavingsJar } from '@/lib/types'
 import { calcCutoff15, calcCutoff30, CutoffResult, peso, getMonthsToGoal, buildHistoryEntry, distributeSavingsToJars } from '@/lib/calc'
 import { TrendingUp, PiggyBank, Wallet, Receipt, Plus, ChevronRight, Save, Calendar, Coins, PieChart, Info } from 'lucide-react'
+import BufferIndicator from './BufferIndicator'
+import BudgetChart from './BudgetChart'
 
 interface Props {
   settings: Settings
@@ -407,6 +409,8 @@ export default function Dashboard({ settings, history, onSaveHistory }: Props) {
         </div>
       </div>
 
+      <BufferIndicator totalBuffer={totalBuffer} days={30} label="Monthly" />
+
       {/* Summary metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -560,9 +564,11 @@ export default function Dashboard({ settings, history, onSaveHistory }: Props) {
         </div>
       </div>
 
- 
-
-    
+      <BudgetChart 
+        expenses={[...r15.expenses, ...r30.expenses]} 
+        savings={totalSavings} 
+        buffer={totalBuffer}
+      />
 
       {/* Projection table */}
       <div className="bg-white border border-slate-200 rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 shadow-sm shadow-slate-200/50 mb-12">
