@@ -73,7 +73,7 @@ function FieldRow({
           />
         </div>
         {onDelete && (
-          <button onClick={onDelete} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-soft opacity-0 group-hover/row:opacity-100">
+          <button onClick={onDelete} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-soft md:opacity-0 md:group-hover/row:opacity-100">
             <Trash2 size={16} strokeWidth={2} />
           </button>
         )}
@@ -181,7 +181,7 @@ function SavingsJarList({
               />
               <button 
                 onClick={() => remove(j.id)} 
-                className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-soft opacity-0 group-hover:opacity-100"
+                className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-soft md:opacity-0 md:group-hover:opacity-100"
               >
                 <Trash2 size={16} strokeWidth={2} />
               </button>
