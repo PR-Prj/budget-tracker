@@ -1,20 +1,24 @@
 'use client'
 import { useState } from 'react'
-import { useSettings, useHistory } from '@/lib/storage'
+import { useSettings, useHistory, useTransactions } from '@/lib/storage'
 import Dashboard from '@/components/Dashboard'
 import SettingsPanel from '@/components/SettingsPanel'
 import HistoryTab from '@/components/HistoryTab'
 import StudentTab from '@/components/StudentTab'
-import { LayoutDashboard, Settings, History, GraduationCap } from 'lucide-react'
+import PlannerTab from '@/components/PlannerTab'
+import TransactionsTab from '@/components/TransactionsTab'
+import AccountsTab from '@/components/AccountsTab'
+import { LayoutDashboard, Settings, History, GraduationCap, CalendarDays, Receipt, Landmark } from 'lucide-react'
 
-type Tab = 'dashboard' | 'settings' | 'history' | 'student'
+type Tab = 'dashboard' | 'settings' | 'history' | 'student' | 'planner' | 'transactions' | 'accounts'
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('dashboard')
   const { settings, setSettings, loaded } = useSettings()
   const { history, addEntry, removeEntry, clearHistory } = useHistory()
+  const { transactions, addTransaction, removeTransaction, loaded: transactionsLoaded } = useTransactions()
 
-  if (!loaded) {
+  if (!loaded || !transactionsLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 font-sans">
         <div className="flex flex-col items-center gap-4">
@@ -28,6 +32,9 @@ export default function Home() {
   const tabs = [
     { id: 'dashboard' as Tab, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'student' as Tab, label: 'Student', icon: GraduationCap },
+    { id: 'planner' as Tab, label: 'Bills & Goals', icon: CalendarDays },
+    { id: 'accounts' as Tab, label: 'Accounts', icon: Landmark },
+    { id: 'transactions' as Tab, label: 'Transactions', icon: Receipt },
     { id: 'settings' as Tab, label: 'Settings', icon: Settings },
     { id: 'history' as Tab, label: 'History', icon: History },
   ]
@@ -46,7 +53,7 @@ export default function Home() {
               </span>
             </div>
             
-            <nav className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-2xl">
+            <nav className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-2xl max-w-[72vw] overflow-x-auto">
               {tabs.map(t => (
                 <button
                   key={t.id}
@@ -76,6 +83,9 @@ export default function Home() {
 
         {tab === 'dashboard' && <Dashboard settings={settings} history={history} onSaveHistory={addEntry} />}
         {tab === 'student' && <StudentTab settings={settings} history={history} onSaveHistory={addEntry} />}
+        {tab === 'planner' && <PlannerTab settings={settings} onUpdate={setSettings} />}
+        {tab === 'accounts' && <AccountsTab accounts={settings.accounts || []} transactions={transactions} onUpdate={accounts => setSettings({ ...settings, accounts })} />}
+        {tab === 'transactions' && <TransactionsTab transactions={transactions} accounts={settings.accounts || []} onAdd={addTransaction} onRemove={removeTransaction} />}
         {tab === 'settings' && <SettingsPanel settings={settings} onUpdate={setSettings} />}
         {tab === 'history' && <HistoryTab history={history} onRemove={removeEntry} onClear={clearHistory} savingsGoal={settings.savingsGoal} />}
       </main>

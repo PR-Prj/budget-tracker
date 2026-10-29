@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Settings, HistoryEntry, DEFAULT_SETTINGS } from './types'
+import { Settings, HistoryEntry, ExpenseTransaction, DEFAULT_SETTINGS } from './types'
 
 export function useSettings() {
   const [settings, setSettingsState] = useState<Settings>(DEFAULT_SETTINGS)
@@ -67,4 +67,35 @@ export function useHistory() {
   }, [])
 
   return { history, addEntry, removeEntry, clearHistory, loaded }
+}
+
+export function useTransactions() {
+  const [transactions, setTransactions] = useState<ExpenseTransaction[]>([])
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('budget-transactions')
+      if (raw) setTransactions(JSON.parse(raw))
+    } catch {}
+    setLoaded(true)
+  }, [])
+
+  const addTransaction = useCallback((entry: ExpenseTransaction) => {
+    setTransactions(prev => {
+      const next = [entry, ...prev]
+      localStorage.setItem('budget-transactions', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  const removeTransaction = useCallback((id: string) => {
+    setTransactions(prev => {
+      const next = prev.filter(entry => entry.id !== id)
+      localStorage.setItem('budget-transactions', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  return { transactions, addTransaction, removeTransaction, loaded }
 }

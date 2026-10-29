@@ -5,6 +5,41 @@ export interface SavingsJar {
   name: string
   targetAmount: number
   splitPercent: number // 0-100, how much of the savings split goes here
+  currentAmount?: number
+  targetDate?: string
+}
+
+export interface Bill {
+  id: string
+  name: string
+  amount: number
+  dueDay: number
+  category: string
+}
+
+export interface TransactionSplit {
+  category: string
+  amount: number
+}
+
+export interface ExpenseTransaction {
+  id: string
+  date: string
+  merchant: string
+  amount: number
+  category: string
+  note?: string
+  splits?: TransactionSplit[]
+  type?: 'expense' | 'income' | 'transfer'
+  accountId?: string
+  toAccountId?: string
+}
+
+export interface Account {
+  id: string
+  name: string
+  type: 'bank' | 'e-wallet' | 'cash' | 'other'
+  startingBalance: number
 }
 
 export interface CustomExpense {
@@ -49,6 +84,9 @@ export interface Settings {
   savingsGoal: number
   savingsSplit: number // percent to savings (0-100), rest goes to buffer
   savingsJars: SavingsJar[]
+  accounts: Account[]
+  bills: Bill[]
+  billPayments: Record<string, string[]>
   studentConfig: StudentConfig
 }
 
@@ -100,10 +138,13 @@ export const DEFAULT_SETTINGS: Settings = {
   savingsGoal: 10000,
   savingsSplit: 50,
   savingsJars: [
-    { id: 'emergency', name: 'Emergency Fund', targetAmount: 5000, splitPercent: 50 },
-    { id: 'gadget', name: 'Gadget Pot', targetAmount: 3000, splitPercent: 30 },
-    { id: 'travel', name: 'Travel Jar', targetAmount: 2000, splitPercent: 20 },
+    { id: 'emergency', name: 'Emergency Fund', targetAmount: 5000, splitPercent: 50, currentAmount: 0 },
+    { id: 'gadget', name: 'Gadget Pot', targetAmount: 3000, splitPercent: 30, currentAmount: 0 },
+    { id: 'travel', name: 'Travel Jar', targetAmount: 2000, splitPercent: 20, currentAmount: 0 },
   ],
+  accounts: [],
+  bills: [],
+  billPayments: {},
   additionalPayments: [
     { id: 'apr', month: 'April', cutoff15: 860, cutoff30: 0 },
     { id: 'may', month: 'May', cutoff15: 770, cutoff30: 0 },
