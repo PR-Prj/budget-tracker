@@ -12,7 +12,7 @@ export function getSpecialExtra(specialMonth: SpecialMonth, payments: Additional
 export interface ExpenseItem {
   name: string
   amount: number
-  category: 'base' | 'heavy' | 'custom' | 'additional'
+  category: 'base' | 'heavy' | 'custom' | 'additional' | 'bill'
   wallet?: string
 }
 
@@ -76,6 +76,12 @@ export function calcCutoff15(
     }
   })
 
+  const plannedNames = new Set(expenses.map(expense => expense.name.toLocaleLowerCase()))
+  settings.bills.filter(bill => bill.dueDay <= 15 && !plannedNames.has(bill.name.toLocaleLowerCase())).forEach(bill => {
+    expenses.push({ name: bill.name, amount: bill.amount, category: 'bill' })
+    plannedNames.add(bill.name.toLocaleLowerCase())
+  })
+
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
   const remaining = cfg.income - totalExpenses
   const savings = Math.max(0, Math.round(remaining * split))
@@ -135,6 +141,12 @@ export function calcCutoff30(
     }
   })
 
+  const plannedNames = new Set(expenses.map(expense => expense.name.toLocaleLowerCase()))
+  settings.bills.filter(bill => bill.dueDay > 15 && !plannedNames.has(bill.name.toLocaleLowerCase())).forEach(bill => {
+    expenses.push({ name: bill.name, amount: bill.amount, category: 'bill' })
+    plannedNames.add(bill.name.toLocaleLowerCase())
+  })
+
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
   const remaining = cfg.income - totalExpenses
   const savings = Math.max(0, Math.round(remaining * split))
@@ -156,14 +168,14 @@ export function buildStudentHistoryEntry(
   const dailyExpenses = Object.entries(cfg.baseDailyExpenses || {}).map(([name, amount]) => ({
     name,
     amount,
-    actualAmount: actualDailyExpenses[name] ?? amount,
+    actualAmount: actualDailyExpenses[name] ?? 0,
     wallet: cfg.expenseWallets?.[name]
   }))
 
   const weeklyExtras = Object.entries(cfg.weeklySchoolExtra || {}).map(([name, amount]) => ({
     name,
     amount,
-    actualAmount: actualWeeklyExtras[name] ?? amount,
+    actualAmount: actualWeeklyExtras[name] ?? 0,
     wallet: cfg.expenseWallets?.[name]
   }))
 
@@ -171,11 +183,15 @@ export function buildStudentHistoryEntry(
   const custom = (cfg.customExpenses || []).map(e => ({
     name: e.name,
     amount: e.amount,
-    actualAmount: e.amount,
+    actualAmount: actualWeeklyExtras[e.name] ?? 0,
     wallet: e.wallet
   }))
 
-  const totalWeeklyExtras = [...weeklyExtras, ...custom]
+  const knownExtras = new Set([...weeklyExtras.map(expense => expense.name), ...custom.map(expense => expense.name)])
+  const unplanned = Object.entries(actualWeeklyExtras)
+    .filter(([name, amount]) => !knownExtras.has(name) && amount > 0)
+    .map(([name, amount]) => ({ name, amount: 0, actualAmount: amount }))
+  const totalWeeklyExtras = [...weeklyExtras, ...custom, ...unplanned]
 
   const weeklyAllowance = actualDailyAllowance * (cfg.schoolDaysPerWeek || 0)
   const dailyTotalActual = dailyExpenses.reduce((s, e) => s + e.actualAmount, 0)
@@ -219,15 +235,17 @@ export function buildHistoryEntry(
   actuals15: Record<string, number> = {},
   actuals30: Record<string, number> = {},
   actualIncome15?: number,
-  actualIncome30?: number
+  actualIncome30?: number,
+  unplanned15: { name: string; amount: number }[] = [],
+  unplanned30: { name: string; amount: number }[] = []
 ): HistoryEntry {
   const c15 = calcCutoff15(settings, monthType, specialMonth)
   const c30 = calcCutoff30(settings, monthType, specialMonth)
 
   const processExpenses = (expenses: ExpenseItem[], actuals: Record<string, number>) => {
     let totalActual = 0
-    const items = expenses.map(e => {
-      const actual = actuals[e.name] !== undefined ? actuals[e.name] : e.amount
+    const items: { name: string; amount: number; actualAmount: number; category: string; wallet?: string }[] = expenses.map(e => {
+      const actual = actuals[e.name] !== undefined ? actuals[e.name] : 0
       totalActual += actual
       return { 
         name: e.name, 
@@ -242,6 +260,14 @@ export function buildHistoryEntry(
 
   const res15 = processExpenses(c15.expenses, actuals15)
   const res30 = processExpenses(c30.expenses, actuals30)
+  unplanned15.forEach(expense => {
+    res15.items.push({ name: expense.name, amount: 0, actualAmount: expense.amount, category: 'unplanned' })
+    res15.totalActual += expense.amount
+  })
+  unplanned30.forEach(expense => {
+    res30.items.push({ name: expense.name, amount: 0, actualAmount: expense.amount, category: 'unplanned' })
+    res30.totalActual += expense.amount
+  })
 
   const finalIncome15 = actualIncome15 !== undefined ? actualIncome15 : c15.income
   const finalIncome30 = actualIncome30 !== undefined ? actualIncome30 : c30.income

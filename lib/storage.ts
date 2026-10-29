@@ -2,24 +2,30 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Settings, HistoryEntry, ExpenseTransaction, DEFAULT_SETTINGS } from './types'
 
+function readStored<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) as T : fallback
+  } catch {
+    return fallback
+  }
+}
+
 export function useSettings() {
-  const [settings, setSettingsState] = useState<Settings>(DEFAULT_SETTINGS)
+  const [settings, setSettingsState] = useState<Settings>(() => {
+    const saved = readStored<Partial<Settings>>('budget-settings', {})
+    return {
+      ...DEFAULT_SETTINGS,
+      ...saved,
+      studentConfig: saved.studentConfig ? { ...DEFAULT_SETTINGS.studentConfig, ...saved.studentConfig } : DEFAULT_SETTINGS.studentConfig,
+    }
+  })
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('budget-settings')
-      if (raw) {
-        const saved = JSON.parse(raw)
-        // Deep merge logic simplified: overwrite DEFAULT_SETTINGS with saved fields
-        setSettingsState({
-          ...DEFAULT_SETTINGS,
-          ...saved,
-          studentConfig: saved.studentConfig ? { ...DEFAULT_SETTINGS.studentConfig, ...saved.studentConfig } : DEFAULT_SETTINGS.studentConfig
-        })
-      }
-    } catch {}
-    setLoaded(true)
+    const timer = window.setTimeout(() => setLoaded(true), 0)
+    return () => window.clearTimeout(timer)
   }, [])
 
   const setSettings = useCallback((s: Settings | ((prev: Settings) => Settings)) => {
@@ -34,15 +40,12 @@ export function useSettings() {
 }
 
 export function useHistory() {
-  const [history, setHistoryState] = useState<HistoryEntry[]>([])
+  const [history, setHistoryState] = useState<HistoryEntry[]>(() => readStored('budget-history', []))
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('budget-history')
-      if (raw) setHistoryState(JSON.parse(raw))
-    } catch {}
-    setLoaded(true)
+    const timer = window.setTimeout(() => setLoaded(true), 0)
+    return () => window.clearTimeout(timer)
   }, [])
 
   const addEntry = useCallback((entry: HistoryEntry) => {
@@ -70,15 +73,12 @@ export function useHistory() {
 }
 
 export function useTransactions() {
-  const [transactions, setTransactions] = useState<ExpenseTransaction[]>([])
+  const [transactions, setTransactions] = useState<ExpenseTransaction[]>(() => readStored('budget-transactions', []))
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('budget-transactions')
-      if (raw) setTransactions(JSON.parse(raw))
-    } catch {}
-    setLoaded(true)
+    const timer = window.setTimeout(() => setLoaded(true), 0)
+    return () => window.clearTimeout(timer)
   }, [])
 
   const addTransaction = useCallback((entry: ExpenseTransaction) => {

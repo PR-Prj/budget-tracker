@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Settings, HistoryEntry, SavingsJar, CustomExpense } from '@/lib/types'
+import { Settings, HistoryEntry, SavingsJar, CustomExpense, ExpenseTransaction } from '@/lib/types'
 import { peso, buildStudentHistoryEntry } from '@/lib/calc'
 import { 
   GraduationCap, 
@@ -35,26 +35,55 @@ import BudgetChart from './BudgetChart'
 
 interface Props {
   settings: Settings
-  history: HistoryEntry[]
+  transactions: ExpenseTransaction[]
   onSaveHistory: (entry: HistoryEntry) => void
 }
 
-export default function StudentTab({ settings, history, onSaveHistory }: Props) {
+export default function StudentTab({ settings, transactions, onSaveHistory }: Props) {
   const cfg = settings.studentConfig
-  
-  // State for Actuals
-  const [actualDailyAllowance, setActualDailyAllowance] = useState<number>(cfg.dailyAllowance)
-  const [actualDailyExpenses, setActualDailyExpenses] = useState<Record<string, number>>({})
-  const [actualWeeklyExtras, setActualWeeklyExtras] = useState<Record<string, number>>({})
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(MONTHS[new Date().getMonth()].value)
   const [selectedWeek, setSelectedWeek] = useState(1)
   const [saved, setSaved] = useState(false)
 
+  const selectedMonthNumber = MONTHS.findIndex(month => month.value === selectedMonth) + 1
+  const selectedMonthKey = `${selectedYear}-${String(selectedMonthNumber).padStart(2, '0')}`
+  const schoolDays = cfg?.schoolDaysPerWeek || 1
+  const weekTransactions = transactions.filter(transaction => {
+    if (transaction.budgetMode !== 'student' || !transaction.date.startsWith(selectedMonthKey)) return false
+    return Math.ceil(Number(transaction.date.slice(8, 10)) / 7) === selectedWeek
+  })
+  const studentItems = new Set([
+    ...Object.keys(cfg.baseDailyExpenses || {}),
+    ...Object.keys(cfg.weeklySchoolExtra || {}),
+    ...(cfg.customExpenses || []).map(expense => expense.name),
+  ])
+  const actualDailyExpenses: Record<string, number> = {}
+  const actualWeeklyExtras: Record<string, number> = {}
+  const unplannedAmounts: Record<string, number> = {}
+  weekTransactions.filter(transaction => (transaction.type || 'expense') === 'expense').forEach(transaction => {
+    const parts = transaction.splits?.length ? transaction.splits : [{ category: transaction.category, amount: transaction.amount, budgetItem: transaction.budgetItem }]
+    parts.forEach(part => {
+      if (part.budgetItem && studentItems.has(part.budgetItem)) {
+        if (Object.prototype.hasOwnProperty.call(cfg.baseDailyExpenses || {}, part.budgetItem)) {
+          actualDailyExpenses[part.budgetItem] = (actualDailyExpenses[part.budgetItem] || 0) + part.amount / schoolDays
+        } else {
+          actualWeeklyExtras[part.budgetItem] = (actualWeeklyExtras[part.budgetItem] || 0) + part.amount
+        }
+      } else {
+        const label = part.category || 'Other'
+        unplannedAmounts[label] = (unplannedAmounts[label] || 0) + part.amount
+      }
+    })
+  })
+  Object.entries(unplannedAmounts).forEach(([name, amount]) => { actualWeeklyExtras[`Unplanned · ${name}`] = amount })
+  const weekIncome = weekTransactions.filter(transaction => transaction.type === 'income').reduce((sum, transaction) => sum + transaction.amount, 0)
+  const actualDailyAllowance = weekIncome > 0 ? weekIncome / schoolDays : cfg.dailyAllowance
+
   // Calcs
   const dailyBaseTarget = Object.values(cfg?.baseDailyExpenses || {}).reduce((a, b) => a + b, 0)
-  const totalActualDaily = Object.entries(cfg.baseDailyExpenses || {}).reduce((sum, [name, amount]) => {
-    return sum + (actualDailyExpenses[name] ?? amount)
+  const totalActualDaily = Object.entries(cfg.baseDailyExpenses || {}).reduce((sum, [name]) => {
+    return sum + (actualDailyExpenses[name] ?? 0)
   }, 0)
 
   const dailyRemaining = actualDailyAllowance - totalActualDaily
@@ -62,9 +91,9 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
   const weeklyAllowance = actualDailyAllowance * (cfg?.schoolDaysPerWeek || 0)
   const weeklyBaseTotalActual = totalActualDaily * (cfg?.schoolDaysPerWeek || 0)
   
-  const totalActualWeeklyExtras = Object.entries(cfg.weeklySchoolExtra || {}).reduce((sum, [name, amount]) => {
-    return sum + (actualWeeklyExtras[name] ?? amount)
-  }, 0)
+  const totalActualWeeklyExtras = [...Object.keys(cfg.weeklySchoolExtra || {}), ...(cfg.customExpenses || []).map(expense => expense.name)]
+    .reduce((sum, name) => sum + (actualWeeklyExtras[name] ?? 0), 0)
+    + Object.entries(unplannedAmounts).reduce((sum, [, amount]) => sum + amount, 0)
   
   const totalWeeklyExpenses = weeklyBaseTotalActual + totalActualWeeklyExtras
   const weeklySurplus = weeklyAllowance - totalWeeklyExpenses
@@ -74,7 +103,10 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
   const actualWeeklyBuffer = weeklySurplus - actualWeeklySavings
   
   const monthlySavingsEst = actualWeeklySavings * 4
-  const totalSavedSoFar = history.reduce((sum, entry) => sum + entry.totalSavings, 0) // Simplified for now
+  const totalSavedSoFar = (cfg.savingsJars || []).reduce((sum, jar) => {
+    const contributions = transactions.filter(transaction => transaction.type === 'transfer' && transaction.goalId === jar.id).reduce((total, transaction) => total + transaction.amount * (transaction.goalEffect === 'withdrawal' ? -1 : 1), 0)
+    return sum + (jar.currentAmount || 0) + contributions
+  }, 0)
   const savingsGoal = cfg.savingsGoal || 5000
   const progress = Math.min(100, (totalSavedSoFar / savingsGoal) * 100)
 
@@ -205,7 +237,7 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
             <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Calendar size={18} className="text-primary" /> Daily Ledger
             </h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Track today's campus spending</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Actuals from transactions logged for this week</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
@@ -246,12 +278,7 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
               </div>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">₱</span>
-                <input 
-                  type="number"
-                  value={actualDailyAllowance}
-                  onChange={(e) => setActualDailyAllowance(Number(e.target.value))}
-                  className="w-24 pl-6 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-soft text-right shadow-sm"
-                />
+                <div className="w-28 px-2 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 text-right shadow-sm">{peso(actualDailyAllowance)}</div>
               </div>
             </div>
             <button
@@ -304,12 +331,7 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
                       <span className="text-xs font-medium text-slate-500 w-16 text-right">{peso(amount)}</span>
                       <div className="relative">
                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">₱</span>
-                         <input 
-                            type="number"
-                            value={actualDailyExpenses[name] ?? amount}
-                            onChange={(e) => setActualDailyExpenses(prev => ({ ...prev, [name]: Number(e.target.value) }))}
-                            className="w-24 pl-5 pr-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-soft text-right"
-                         />
+                         <div className="w-24 pl-5 pr-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 text-right">{peso(actualDailyExpenses[name] ?? 0)}</div>
                       </div>
                    </div>
                 </div>
@@ -318,13 +340,13 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
 
           <div className="mt-8 pt-8 border-t border-slate-100 space-y-4">
              <div className="flex justify-between items-center px-2">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Spent Today</span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Average Daily Spend</span>
                 <span className="text-xl font-black text-rose-500">{peso(totalActualDaily)}</span>
              </div>
              <div className="flex justify-between items-center p-5 bg-emerald-50 rounded-3xl border border-emerald-100/50">
                 <div className="space-y-0.5">
                    <div className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Remaining Funds</div>
-                   <div className="text-[9px] font-medium text-emerald-600/70">From today's allowance</div>
+                   <div className="text-[9px] font-medium text-emerald-600/70">From the weekly allowance</div>
                 </div>
                 <span className={`text-2xl font-black ${dailyRemaining < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
                    {peso(dailyRemaining)}
@@ -354,12 +376,7 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
                           <span className="text-xs font-medium text-slate-500 w-16 text-right">{peso(amount)}</span>
                           <div className="relative">
                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">₱</span>
-                             <input 
-                                type="number"
-                                value={actualWeeklyExtras[name] ?? amount}
-                                onChange={(e) => setActualWeeklyExtras(prev => ({ ...prev, [name]: Number(e.target.value) }))}
-                                className="w-24 pl-5 pr-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-soft text-right"
-                             />
+                             <div className="w-24 pl-5 pr-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 text-right">{peso(actualWeeklyExtras[name] ?? 0)}</div>
                           </div>
                        </div>
                     </div>
@@ -371,7 +388,13 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
                           <span className="text-sm font-bold text-indigo-900/80 truncate group-hover:text-indigo-900 transition-soft">{e.name}</span>
                           {e.wallet && <span className="text-[9px] font-black text-indigo-400/60 uppercase">via {e.wallet}</span>}
                        </div>
-                       <span className="text-sm font-black text-indigo-600">{peso(e.amount)}</span>
+                       <span className="text-sm font-black text-indigo-600">{peso(actualWeeklyExtras[e.name] ?? 0)}</span>
+                    </div>
+                 ))}
+                 {Object.entries(unplannedAmounts).map(([name, amount]) => (
+                    <div key={name} className="flex justify-between items-center py-3 px-3 bg-rose-50/60 rounded-2xl border border-rose-100/70 mb-1">
+                       <span className="text-sm font-bold text-rose-700 truncate">Unplanned · {name}</span>
+                       <span className="text-sm font-black text-rose-700">{peso(amount)}</span>
                     </div>
                  ))}
                  
@@ -407,9 +430,10 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
 
       <BudgetChart 
         expenses={[
-          ...Object.entries(cfg.baseDailyExpenses || {}).map(([name, amount]) => ({ name, amount: (actualDailyExpenses[name] ?? amount) * cfg.schoolDaysPerWeek, category: 'base' })),
-          ...Object.entries(cfg.weeklySchoolExtra || {}).map(([name, amount]) => ({ name, amount: actualWeeklyExtras[name] ?? amount, category: 'extra' })),
-          ...(cfg.customExpenses || []).map(e => ({ name: e.name, amount: e.amount, category: 'custom' }))
+          ...Object.entries(cfg.baseDailyExpenses || {}).map(([name]) => ({ name, amount: (actualDailyExpenses[name] ?? 0) * cfg.schoolDaysPerWeek, category: 'base' })),
+          ...Object.entries(cfg.weeklySchoolExtra || {}).map(([name]) => ({ name, amount: actualWeeklyExtras[name] ?? 0, category: 'extra' })),
+          ...(cfg.customExpenses || []).map(e => ({ name: e.name, amount: actualWeeklyExtras[e.name] ?? 0, category: 'custom' })),
+          ...Object.entries(unplannedAmounts).map(([name, amount]) => ({ name: `Unplanned · ${name}`, amount, category: 'unplanned' }))
         ]} 
         savings={actualWeeklySavings} 
         buffer={actualWeeklyBuffer}
@@ -433,8 +457,8 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {cfg.savingsJars.map(jar => {
-              const jarWeekly = Math.round(actualWeeklySavings * (jar.splitPercent / 100))
-              const jarProgress = jar.targetAmount > 0 ? Math.min(100, Math.round((jarWeekly * 4 / jar.targetAmount) * 100)) : 0
+              const jarSaved = (jar.currentAmount || 0) + transactions.filter(transaction => transaction.type === 'transfer' && transaction.goalId === jar.id).reduce((sum, transaction) => sum + transaction.amount * (transaction.goalEffect === 'withdrawal' ? -1 : 1), 0)
+              const jarProgress = jar.targetAmount > 0 ? Math.min(100, Math.round((jarSaved / jar.targetAmount) * 100)) : 0
               
               return (
                 <div key={jar.id} className="bg-slate-50/50 border border-slate-100 rounded-3xl p-6 flex flex-col gap-5 group hover:border-primary/20 hover:bg-white transition-soft">
@@ -443,10 +467,10 @@ export default function StudentTab({ settings, history, onSaveHistory }: Props) 
                     <span className="text-[9px] font-black bg-white border border-slate-200 text-primary px-2 py-1 rounded shadow-sm">{jar.splitPercent}%</span>
                   </div>
                   <div className="space-y-4">
-                    <div className="text-2xl font-black text-slate-900 tracking-tighter">{peso(jarWeekly)}<span className="text-[10px] text-slate-400 font-bold ml-1 uppercase">/ wk</span></div>
+                    <div className="text-2xl font-black text-slate-900 tracking-tighter">{peso(jarSaved)}<span className="text-[10px] text-slate-400 font-bold ml-1 uppercase">saved</span></div>
                     <div className="space-y-2">
                        <div className="flex justify-between items-center text-[9px] font-bold uppercase text-slate-400 tracking-tighter">
-                          <span>Est. Monthly Progress</span>
+                          <span>Actual goal progress</span>
                           <span className="text-primary">{jarProgress}%</span>
                        </div>
                        <div className="h-1 bg-slate-200 overflow-hidden rounded-full font-bold">

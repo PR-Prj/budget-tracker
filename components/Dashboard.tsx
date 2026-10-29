@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Settings, MonthType, SpecialMonth, HistoryEntry, AdditionalPayment, SavingsJar } from '@/lib/types'
+import { Settings, MonthType, SpecialMonth, HistoryEntry, AdditionalPayment, SavingsJar, ExpenseTransaction } from '@/lib/types'
 import { calcCutoff15, calcCutoff30, CutoffResult, peso, getMonthsToGoal, buildHistoryEntry, distributeSavingsToJars } from '@/lib/calc'
 import { TrendingUp, PiggyBank, Wallet, Receipt, Plus, ChevronRight, Save, Calendar, Coins, PieChart, Info } from 'lucide-react'
 import BufferIndicator from './BufferIndicator'
@@ -8,7 +8,7 @@ import BudgetChart from './BudgetChart'
 
 interface Props {
   settings: Settings
-  history: HistoryEntry[]
+  transactions: ExpenseTransaction[]
   onSaveHistory: (entry: HistoryEntry) => void
 }
 
@@ -27,9 +27,8 @@ function CutoffCard({
   result, 
   isHeavy, 
   actuals, 
-  onActualChange,
+  unplannedActuals,
   actualIncome,
-  onIncomeChange,
   savingsSplit,
   jars
 }: { 
@@ -37,14 +36,13 @@ function CutoffCard({
   result: CutoffResult; 
   isHeavy: boolean;
   actuals: Record<string, number>;
-  onActualChange: (name: string, val: number) => void;
+  unplannedActuals: { name: string; amount: number }[];
   actualIncome: number;
-  onIncomeChange: (val: number) => void;
   savingsSplit: number;
   jars: SavingsJar[]
 }) {
   const expenses = result?.expenses || []
-  const totalActual = expenses.reduce((sum, e) => sum + (actuals[e.name] ?? e.amount), 0)
+  const totalActual = expenses.reduce((sum, e) => sum + (actuals[e.name] ?? 0), 0) + unplannedActuals.reduce((sum, e) => sum + e.amount, 0)
   const variance = result.totalExpenses - totalActual
   const effectiveIncome = actualIncome || result.income
   const remaining = effectiveIncome - totalActual
@@ -71,19 +69,15 @@ function CutoffCard({
 
       <div className="flex items-center justify-between mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
         <div className="flex flex-col">
-          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Income Received</span>
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Income for this cutoff</span>
           <span className="text-xs text-slate-400 font-medium pt-0.5">Budgeted: {peso(result.income)}</span>
+          <span className="text-[9px] text-slate-400 pt-0.5">{actualIncome > 0 ? 'From recorded income' : 'No income logged · using budget'}</span>
         </div>
         <div className="flex items-center gap-3">
            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Actual:</span>
            <div className="relative">
              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">₱</span>
-             <input
-              type="number"
-              value={actualIncome || result.income}
-              onChange={(ev) => onIncomeChange(Number(ev.target.value))}
-              className="w-32 pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-soft text-right shadow-sm"
-            />
+             <div className="w-32 pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 text-right shadow-sm">{peso(effectiveIncome)}</div>
            </div>
         </div>
       </div>
@@ -96,6 +90,7 @@ function CutoffCard({
             <span className="w-20 text-right">Actual</span>
           </div>
         </div>
+        <p className="px-2 pb-2 text-[10px] text-slate-400">Actuals come from Transactions linked to this budget. Unlinked expenses appear below as unplanned.</p>
         {result.expenses.map((e, i) => (
           <div key={i} className="flex justify-between items-center py-2.5 px-2 hover:bg-slate-50/50 transition-soft rounded-xl">
             <div className="flex flex-col min-w-0 flex-1">
@@ -116,15 +111,16 @@ function CutoffCard({
                 {peso(e.amount)}
               </span>
               <div className="relative">
-                <input
-                  type="number"
-                  value={actuals[e.name] ?? e.amount}
-                  onChange={(ev) => onActualChange(e.name, Number(ev.target.value))}
-                  className="w-24 pl-5 pr-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/50 transition-soft text-right"
-                />
+                <div className="w-24 pl-5 pr-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 text-right">{peso(actuals[e.name] ?? 0)}</div>
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">₱</span>
               </div>
             </div>
+          </div>
+        ))}
+        {unplannedActuals.map(expense => (
+          <div key={expense.name} className="flex justify-between items-center py-2.5 px-2 rounded-xl bg-rose-50/60">
+            <span className="text-sm text-rose-700 font-semibold">Unplanned · {expense.name}</span>
+            <span className="text-xs font-bold text-rose-700">{peso(expense.amount)}</span>
           </div>
         ))}
       </div>
@@ -259,25 +255,63 @@ function MultiSelectAdditional({
 }
 
 
-export default function Dashboard({ settings, history, onSaveHistory }: Props) {
+export default function Dashboard({ settings, transactions, onSaveHistory }: Props) {
   const [monthType, setMonthType] = useState<MonthType>('heavy')
   const [specialMonths, setSpecialMonths] = useState<SpecialMonth>([])
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(MONTHS[new Date().getMonth()].value)
-  const [actuals15, setActuals15] = useState<Record<string, number>>({})
-  const [actuals30, setActuals30] = useState<Record<string, number>>({})
-  const [actualIncome15, setActualIncome15] = useState<number>(0)
-  const [actualIncome30, setActualIncome30] = useState<number>(0)
   const [saved, setSaved] = useState(false)
 
   const r15 = calcCutoff15(settings, monthType, specialMonths)
   const r30 = calcCutoff30(settings, monthType, specialMonths)
-  
+
+  const monthNumber = MONTHS.findIndex(month => month.value === selectedMonth) + 1
+  const selectedMonthKey = `${selectedYear}-${String(monthNumber).padStart(2, '0')}`
+  const monthTransactions = transactions.filter(transaction => transaction.date.startsWith(selectedMonthKey))
+
+  function getCutoffActuals(result: CutoffResult, cutoff: 15 | 30) {
+    const actuals = Object.fromEntries(result.expenses.map(expense => [expense.name, 0])) as Record<string, number>
+    const plannedNames = new Map(result.expenses.map(expense => [expense.name.toLocaleLowerCase(), expense.name]))
+    const unplannedAmounts: Record<string, number> = {}
+    const cutoffTransactions = monthTransactions.filter(transaction => {
+      if (transaction.budgetMode === 'student') return false
+      const day = Number(transaction.date.slice(8, 10))
+      return cutoff === 15 ? day >= 1 && day <= 15 : day >= 16
+    })
+
+    cutoffTransactions.forEach(transaction => {
+      if ((transaction.type || 'expense') !== 'expense') return
+      const parts = transaction.splits?.length
+        ? transaction.splits
+        : [{ category: transaction.category, amount: transaction.amount, budgetItem: transaction.budgetItem }]
+      parts.forEach(part => {
+        const plannedName = part.budgetItem ? plannedNames.get(part.budgetItem.toLocaleLowerCase()) : undefined
+        if (plannedName) actuals[plannedName] += part.amount
+        else unplannedAmounts[part.category || 'Other'] = (unplannedAmounts[part.category || 'Other'] || 0) + part.amount
+      })
+    })
+
+    const actualIncome = cutoffTransactions
+      .filter(transaction => transaction.type === 'income')
+      .reduce((sum, transaction) => sum + transaction.amount, 0)
+    return {
+      actuals,
+      unplanned: Object.entries(unplannedAmounts).map(([name, amount]) => ({ name, amount })),
+      actualIncome,
+    }
+  }
+
+  const cutoff15Actuals = getCutoffActuals(r15, 15)
+  const cutoff30Actuals = getCutoffActuals(r30, 30)
+  const actuals15 = cutoff15Actuals.actuals
+  const actuals30 = cutoff30Actuals.actuals
+  const actualIncome15 = cutoff15Actuals.actualIncome
+  const actualIncome30 = cutoff30Actuals.actualIncome
   const effectiveIncome15 = actualIncome15 || r15.income
   const effectiveIncome30 = actualIncome30 || r30.income
-  
-  const totalActualExpenses15 = r15.expenses.reduce((sum, e) => sum + (actuals15[e.name] ?? e.amount), 0)
-  const totalActualExpenses30 = r30.expenses.reduce((sum, e) => sum + (actuals30[e.name] ?? e.amount), 0)
+
+  const totalActualExpenses15 = Object.values(actuals15).reduce((sum, amount) => sum + amount, 0) + cutoff15Actuals.unplanned.reduce((sum, expense) => sum + expense.amount, 0)
+  const totalActualExpenses30 = Object.values(actuals30).reduce((sum, amount) => sum + amount, 0) + cutoff30Actuals.unplanned.reduce((sum, expense) => sum + expense.amount, 0)
   
   const currentSavings15 = Math.max(0, Math.round((effectiveIncome15 - totalActualExpenses15) * (settings.savingsSplit / 100)))
   const currentSavings30 = Math.max(0, Math.round((effectiveIncome30 - totalActualExpenses30) * (settings.savingsSplit / 100)))
@@ -290,7 +324,10 @@ export default function Dashboard({ settings, history, onSaveHistory }: Props) {
   const totalIncome = effectiveIncome15 + effectiveIncome30
   const totalBuffer = currentBuffer15 + currentBuffer30
   
-  const totalSavedSoFar = history.reduce((sum, entry) => sum + entry.totalSavings, 0)
+  const totalSavedSoFar = settings.savingsJars.reduce((sum, jar) => {
+    const contributions = transactions.filter(transaction => transaction.type === 'transfer' && transaction.goalId === jar.id).reduce((total, transaction) => total + transaction.amount * (transaction.goalEffect === 'withdrawal' ? -1 : 1), 0)
+    return sum + (jar.currentAmount || 0) + contributions
+  }, 0)
   const savingsGoal = settings.savingsGoal || 1
   const overallGoalPct = Math.min(100, Math.round((totalSavedSoFar / savingsGoal) * 100))
   
@@ -315,7 +352,9 @@ export default function Dashboard({ settings, history, onSaveHistory }: Props) {
       actuals15, 
       actuals30,
       actualIncome15 || undefined,
-      actualIncome30 || undefined
+      actualIncome30 || undefined,
+      cutoff15Actuals.unplanned,
+      cutoff30Actuals.unplanned
     )
     onSaveHistory(entry)
     setSaved(true)
@@ -509,9 +548,8 @@ export default function Dashboard({ settings, history, onSaveHistory }: Props) {
             result={r15} 
             isHeavy={monthType === 'heavy'} 
             actuals={actuals15}
-            onActualChange={(name, val) => setActuals15(prev => ({ ...prev, [name]: val }))}
+            unplannedActuals={cutoff15Actuals.unplanned}
             actualIncome={actualIncome15}
-            onIncomeChange={(val) => setActualIncome15(val)}
             savingsSplit={settings.savingsSplit}
             jars={settings.savingsJars}
           />
@@ -539,9 +577,8 @@ export default function Dashboard({ settings, history, onSaveHistory }: Props) {
             result={r30} 
             isHeavy={monthType === 'heavy'} 
             actuals={actuals30}
-            onActualChange={(name, val) => setActuals30(prev => ({ ...prev, [name]: val }))}
+            unplannedActuals={cutoff30Actuals.unplanned}
             actualIncome={actualIncome30}
-            onIncomeChange={(val) => setActualIncome30(val)}
             savingsSplit={settings.savingsSplit}
             jars={settings.savingsJars}
           />

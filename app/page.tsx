@@ -29,6 +29,27 @@ export default function Home() {
     )
   }
 
+  const budgetItems = {
+    worker: Array.from(new Set([
+    ...Object.keys(settings.cutoff15.baseExpenses),
+    ...Object.keys(settings.cutoff15.heavyExpenses),
+    ...settings.cutoff15.customExpenses.map(expense => expense.name).filter(Boolean),
+    ...Object.keys(settings.cutoff30.baseExpenses),
+    ...Object.keys(settings.cutoff30.heavyExpenses),
+    ...settings.cutoff30.customExpenses.map(expense => expense.name).filter(Boolean),
+    ...(settings.bills || []).map(bill => bill.name),
+    ])),
+    student: Array.from(new Set([
+      ...Object.keys(settings.studentConfig.baseDailyExpenses || {}),
+      ...Object.keys(settings.studentConfig.weeklySchoolExtra || {}),
+      ...(settings.studentConfig.customExpenses || []).map(expense => expense.name).filter(Boolean),
+    ])),
+  }
+  const goals = [
+    ...settings.savingsJars.map(jar => ({ id: jar.id, name: jar.name })),
+    ...(settings.studentConfig.savingsJars || []).map(jar => ({ id: jar.id, name: `${jar.name} (Student)` })),
+  ]
+
   const tabs = [
     { id: 'dashboard' as Tab, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'student' as Tab, label: 'Student', icon: GraduationCap },
@@ -81,11 +102,11 @@ export default function Home() {
       </header>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 transition-opacity duration-300">
 
-        {tab === 'dashboard' && <Dashboard settings={settings} history={history} onSaveHistory={addEntry} />}
-        {tab === 'student' && <StudentTab settings={settings} history={history} onSaveHistory={addEntry} />}
-        {tab === 'planner' && <PlannerTab settings={settings} onUpdate={setSettings} />}
+        {tab === 'dashboard' && <Dashboard settings={settings} transactions={transactions} onSaveHistory={addEntry} />}
+        {tab === 'student' && <StudentTab settings={settings} transactions={transactions} onSaveHistory={addEntry} />}
+        {tab === 'planner' && <PlannerTab settings={settings} onUpdate={setSettings} transactions={transactions} accounts={settings.accounts || []} onAddTransaction={addTransaction} onRemoveTransaction={removeTransaction} />}
         {tab === 'accounts' && <AccountsTab accounts={settings.accounts || []} transactions={transactions} onUpdate={accounts => setSettings({ ...settings, accounts })} />}
-        {tab === 'transactions' && <TransactionsTab transactions={transactions} accounts={settings.accounts || []} onAdd={addTransaction} onRemove={removeTransaction} />}
+        {tab === 'transactions' && <TransactionsTab transactions={transactions} accounts={settings.accounts || []} budgetItems={budgetItems} goals={goals} onAdd={addTransaction} onRemove={removeTransaction} />}
         {tab === 'settings' && <SettingsPanel settings={settings} onUpdate={setSettings} />}
         {tab === 'history' && <HistoryTab history={history} onRemove={removeEntry} onClear={clearHistory} savingsGoal={settings.savingsGoal} />}
       </main>

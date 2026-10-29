@@ -15,11 +15,13 @@ export interface Bill {
   amount: number
   dueDay: number
   category: string
+  accountId?: string
 }
 
 export interface TransactionSplit {
   category: string
   amount: number
+  budgetItem?: string
 }
 
 export interface ExpenseTransaction {
@@ -31,8 +33,13 @@ export interface ExpenseTransaction {
   note?: string
   splits?: TransactionSplit[]
   type?: 'expense' | 'income' | 'transfer'
+  budgetMode?: 'worker' | 'student'
   accountId?: string
   toAccountId?: string
+  budgetItem?: string
+  billId?: string
+  goalId?: string
+  goalEffect?: 'contribution' | 'withdrawal'
 }
 
 export interface Account {
