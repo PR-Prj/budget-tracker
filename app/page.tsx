@@ -15,8 +15,8 @@ type Tab = 'dashboard' | 'settings' | 'history' | 'student' | 'planner' | 'trans
 export default function Home() {
   const [tab, setTab] = useState<Tab>('dashboard')
   const { settings, setSettings, loaded } = useSettings()
-  const { history, addEntry, removeEntry, clearHistory } = useHistory()
-  const { transactions, addTransaction, removeTransaction, loaded: transactionsLoaded } = useTransactions()
+  const { history, addEntry, removeEntry, clearHistory, replaceHistory } = useHistory()
+  const { transactions, addTransaction, updateTransaction, removeTransaction, replaceTransactions, loaded: transactionsLoaded } = useTransactions()
 
   if (!loaded || !transactionsLoaded) {
     return (
@@ -43,6 +43,7 @@ export default function Home() {
       ...Object.keys(settings.studentConfig.baseDailyExpenses || {}),
       ...Object.keys(settings.studentConfig.weeklySchoolExtra || {}),
       ...(settings.studentConfig.customExpenses || []).map(expense => expense.name).filter(Boolean),
+      ...(settings.studentConfig.semesterExpenses || []).map(expense => expense.name).filter(Boolean),
     ])),
   }
   const goals = [
@@ -102,12 +103,12 @@ export default function Home() {
       </header>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 transition-opacity duration-300">
 
-        {tab === 'dashboard' && <Dashboard settings={settings} transactions={transactions} onSaveHistory={addEntry} />}
-        {tab === 'student' && <StudentTab settings={settings} transactions={transactions} onSaveHistory={addEntry} />}
+        {tab === 'dashboard' && <Dashboard settings={settings} transactions={transactions} onSaveHistory={addEntry} onAddTransaction={addTransaction} />}
+        {tab === 'student' && <StudentTab settings={settings} transactions={transactions} onSaveHistory={addEntry} onAddTransaction={addTransaction} onUpdateSettings={setSettings} accounts={settings.accounts || []} />}
         {tab === 'planner' && <PlannerTab settings={settings} onUpdate={setSettings} transactions={transactions} accounts={settings.accounts || []} onAddTransaction={addTransaction} onRemoveTransaction={removeTransaction} />}
         {tab === 'accounts' && <AccountsTab accounts={settings.accounts || []} transactions={transactions} onUpdate={accounts => setSettings({ ...settings, accounts })} />}
-        {tab === 'transactions' && <TransactionsTab transactions={transactions} accounts={settings.accounts || []} budgetItems={budgetItems} goals={goals} onAdd={addTransaction} onRemove={removeTransaction} />}
-        {tab === 'settings' && <SettingsPanel settings={settings} onUpdate={setSettings} />}
+        {tab === 'transactions' && <TransactionsTab transactions={transactions} accounts={settings.accounts || []} budgetItems={budgetItems} goals={goals} onAdd={addTransaction} onUpdate={updateTransaction} onRemove={removeTransaction} />}
+        {tab === 'settings' && <SettingsPanel settings={settings} transactions={transactions} history={history} onUpdate={setSettings} onRestore={backup => { setSettings(backup.settings); replaceTransactions(backup.transactions); replaceHistory(backup.history) }} />}
         {tab === 'history' && <HistoryTab history={history} onRemove={removeEntry} onClear={clearHistory} savingsGoal={settings.savingsGoal} />}
       </main>
     </div>

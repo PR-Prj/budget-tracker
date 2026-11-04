@@ -1,11 +1,16 @@
 'use client'
 import { useState } from 'react'
-import { Settings, CustomExpense, AdditionalPayment, StudentConfig, SavingsJar } from '@/lib/types'
+import { Settings, CustomExpense, AdditionalPayment, StudentConfig, SavingsJar, MonthlyBudgetLimit } from '@/lib/types'
+import { ExpenseTransaction, HistoryEntry } from '@/lib/types'
+import DataBackupPanel from './DataBackupPanel'
 import { Plus, Trash2, Info, Briefcase, GraduationCap, Coins, ChevronRight, PieChart, Wallet, CreditCard, PiggyBank } from 'lucide-react'
 
 interface Props {
   settings: Settings
+  transactions: ExpenseTransaction[]
+  history: HistoryEntry[]
   onUpdate: (s: Settings) => void
+  onRestore: (backup: { settings: Settings; transactions: ExpenseTransaction[]; history: HistoryEntry[] }) => void
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -235,6 +240,36 @@ function SavingsJarList({
   )
 }
 
+function MonthlyBudgets({ limits, onUpdate }: { limits: Record<string, MonthlyBudgetLimit>; onUpdate: (limits: Record<string, MonthlyBudgetLimit>) => void }) {
+  const [category, setCategory] = useState('')
+  const [amount, setAmount] = useState('')
+  function add() {
+    const key = category.trim()
+    const value = Number(amount)
+    if (!key || value <= 0 || limits[key]) return
+    onUpdate({ ...limits, [key]: { amount: value, rollover: false } })
+    setCategory('')
+    setAmount('')
+  }
+  return <Card>
+    <p className="text-xs text-slate-500 mb-4">Track monthly category caps against regular budget transactions. Optional rollover carries the previous month&apos;s unused amount forward.</p>
+    <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px_auto] gap-2 mb-4">
+      <input value={category} onChange={e => setCategory(e.target.value)} placeholder="Category (e.g. Food)" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+      <input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Monthly limit ₱" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+      <button type="button" onClick={add} className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold">Add limit</button>
+    </div>
+    <div className="divide-y divide-slate-100">
+      {Object.entries(limits).map(([name, config]) => <div key={name} className="grid grid-cols-1 sm:grid-cols-[1fr_160px_auto_auto] items-center gap-3 py-3">
+        <span className="text-sm font-bold text-slate-700">{name}</span>
+        <input aria-label={`${name} monthly limit`} type="number" min="0" step="0.01" value={config.amount} onChange={e => onUpdate({ ...limits, [name]: { ...config, amount: Number(e.target.value) || 0 } })} className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-right" />
+        <label className="flex items-center gap-2 text-xs font-semibold text-slate-500"><input type="checkbox" checked={config.rollover} onChange={e => onUpdate({ ...limits, [name]: { ...config, rollover: e.target.checked } })} />Rollover</label>
+        <button type="button" onClick={() => { const next = { ...limits }; delete next[name]; onUpdate(next) }} className="text-xs font-bold text-rose-500">Remove</button>
+      </div>)}
+      {Object.keys(limits).length === 0 && <p className="py-4 text-center text-sm text-slate-400">No monthly limits configured yet.</p>}
+    </div>
+  </Card>
+}
+
 function AdditionalPaymentList({
   items, onUpdate
 }: {
@@ -410,6 +445,20 @@ function StudentSettingsEditor({
             <FieldRow label="Days per Cycle" sublabel="School days in current budget period" value={config.schoolDaysPerWeek}
               onChange={v => onUpdate({ ...config, schoolDaysPerWeek: v })} />
           </div>
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">School days</div>
+            <div className="flex flex-wrap gap-2">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, day) => {
+                const selected = config.schoolDays || [1, 2, 3, 4, 5]
+                return <label key={day} className={`px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer ${selected.includes(day) ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-400 border-slate-200'}`}>
+                  <input className="sr-only" type="checkbox" checked={selected.includes(day)} onChange={e => {
+                    const days = e.target.checked ? [...selected, day].sort() : selected.filter(item => item !== day)
+                    onUpdate({ ...config, schoolDays: days, schoolDaysPerWeek: days.length || 1 })
+                  }} />{label}
+                </label>
+              })}
+            </div>
+          </div>
         </Card>
         
         <Card>
@@ -490,7 +539,7 @@ function StudentSettingsEditor({
   )
 }
 
-export default function SettingsPanel({ settings, onUpdate }: Props) {
+export default function SettingsPanel({ settings, transactions, history, onUpdate, onRestore }: Props) {
   const [activeTab, setActiveTab] = useState<'worker' | 'student'>('worker')
 
   function set15Base(key: string, val: number) {
@@ -578,6 +627,7 @@ export default function SettingsPanel({ settings, onUpdate }: Props) {
 
   return (
     <div className="space-y-10 pb-20">
+      <DataBackupPanel settings={settings} transactions={transactions} history={history} onRestore={onRestore} />
       <div className="flex p-1.5 bg-slate-100 rounded-2xl w-fit">
         <button
           onClick={() => setActiveTab('worker')}
@@ -598,6 +648,11 @@ export default function SettingsPanel({ settings, onUpdate }: Props) {
           Academic
         </button>
       </div>
+
+      <section className="space-y-3">
+        <SectionTitle>Monthly Category Limits</SectionTitle>
+        <MonthlyBudgets limits={settings.monthlyLimits || {}} onUpdate={monthlyLimits => onUpdate({ ...settings, monthlyLimits })} />
+      </section>
 
       {activeTab === 'worker' ? (
         <div className="space-y-12 animate-in fade-in slide-in-from-bottom-2 duration-500">

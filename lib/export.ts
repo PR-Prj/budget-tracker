@@ -45,7 +45,7 @@ export function exportToCSV(history: HistoryEntry[]) {
       const actualExpenses = student.dailyExpenses.reduce((sum, expense) => sum + (expense.actualAmount ?? 0) * student.schoolDaysPerWeek, 0)
         + student.weeklyExtras.reduce((sum, expense) => sum + (expense.actualAmount ?? 0), 0)
       rows.push([entry.label, 'Student', 'WEEKLY SUMMARY', '-', '-', String(plannedExpenses), String(actualExpenses), String(plannedExpenses - actualExpenses), '-'])
-      rows.push([entry.label, 'Student', 'WEEKLY TOTALS', 'Allowance', '-', String(student.dailyAllowance * student.schoolDaysPerWeek), String(student.actualDailyAllowance * student.schoolDaysPerWeek), 'Savings', String(student.savings)])
+      rows.push([entry.label, 'Student', 'WEEKLY TOTALS', 'Income', '-', String(student.dailyAllowance * student.schoolDaysPerWeek), String(student.actualDailyAllowance * student.schoolDaysPerWeek + (student.additionalIncome || 0)), 'Savings', String(student.savings)])
     }
 
     rows.push(['-', '-', '-', '-', '-', '-', '-', '-', '-'])

@@ -161,7 +161,8 @@ export function buildStudentHistoryEntry(
   key: string,
   actualDailyAllowance: number,
   actualDailyExpenses: Record<string, number>,
-  actualWeeklyExtras: Record<string, number>
+  actualWeeklyExtras: Record<string, number>,
+  additionalIncome = 0
 ): HistoryEntry {
   const cfg = settings.studentConfig
   
@@ -179,6 +180,16 @@ export function buildStudentHistoryEntry(
     wallet: cfg.expenseWallets?.[name]
   }))
 
+  const weekStart = key.match(/^(\d{4}-\d{2}-\d{2})-WEEK$/)?.[1]
+  const weekEndDate = weekStart ? new Date(`${weekStart}T12:00:00`) : null
+  if (weekEndDate) weekEndDate.setDate(weekEndDate.getDate() + 6)
+  const weekEnd = weekEndDate ? `${weekEndDate.getFullYear()}-${String(weekEndDate.getMonth() + 1).padStart(2, '0')}-${String(weekEndDate.getDate()).padStart(2, '0')}` : ''
+  const semesterExpenses = (cfg.semesterExpenses || []).filter(expense => weekStart && expense.dueDate >= weekStart && expense.dueDate <= weekEnd).map(expense => ({
+    name: expense.name,
+    amount: expense.amount,
+    actualAmount: actualWeeklyExtras[expense.name] ?? 0,
+  }))
+
   // Add custom expenses to weekly extras as well (static for now)
   const custom = (cfg.customExpenses || []).map(e => ({
     name: e.name,
@@ -187,13 +198,13 @@ export function buildStudentHistoryEntry(
     wallet: e.wallet
   }))
 
-  const knownExtras = new Set([...weeklyExtras.map(expense => expense.name), ...custom.map(expense => expense.name)])
+  const knownExtras = new Set([...weeklyExtras.map(expense => expense.name), ...custom.map(expense => expense.name), ...semesterExpenses.map(expense => expense.name)])
   const unplanned = Object.entries(actualWeeklyExtras)
     .filter(([name, amount]) => !knownExtras.has(name) && amount > 0)
     .map(([name, amount]) => ({ name, amount: 0, actualAmount: amount }))
-  const totalWeeklyExtras = [...weeklyExtras, ...custom, ...unplanned]
+  const totalWeeklyExtras = [...weeklyExtras, ...custom, ...semesterExpenses, ...unplanned]
 
-  const weeklyAllowance = actualDailyAllowance * (cfg.schoolDaysPerWeek || 0)
+  const weeklyAllowance = actualDailyAllowance * (cfg.schoolDaysPerWeek || 0) + additionalIncome
   const dailyTotalActual = dailyExpenses.reduce((s, e) => s + e.actualAmount, 0)
   const weeklyDailyTotal = dailyTotalActual * (cfg.schoolDaysPerWeek || 0)
   const weeklyExtrasTotal = totalWeeklyExtras.reduce((s, e) => s + e.actualAmount, 0)
@@ -213,6 +224,7 @@ export function buildStudentHistoryEntry(
     studentData: {
       dailyAllowance: cfg.dailyAllowance,
       actualDailyAllowance,
+      additionalIncome,
       schoolDaysPerWeek: cfg.schoolDaysPerWeek,
       dailyExpenses,
       weeklyExtras: totalWeeklyExtras,

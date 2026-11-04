@@ -69,7 +69,12 @@ export function useHistory() {
     localStorage.removeItem('budget-history')
   }, [])
 
-  return { history, addEntry, removeEntry, clearHistory, loaded }
+  const replaceHistory = useCallback((entries: HistoryEntry[]) => {
+    setHistoryState(entries)
+    localStorage.setItem('budget-history', JSON.stringify(entries))
+  }, [])
+
+  return { history, addEntry, removeEntry, clearHistory, replaceHistory, loaded }
 }
 
 export function useTransactions() {
@@ -89,6 +94,14 @@ export function useTransactions() {
     })
   }, [])
 
+  const updateTransaction = useCallback((entry: ExpenseTransaction) => {
+    setTransactions(prev => {
+      const next = prev.map(item => item.id === entry.id ? entry : item)
+      localStorage.setItem('budget-transactions', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
   const removeTransaction = useCallback((id: string) => {
     setTransactions(prev => {
       const next = prev.filter(entry => entry.id !== id)
@@ -97,5 +110,10 @@ export function useTransactions() {
     })
   }, [])
 
-  return { transactions, addTransaction, removeTransaction, loaded }
+  const replaceTransactions = useCallback((entries: ExpenseTransaction[]) => {
+    setTransactions(entries)
+    localStorage.setItem('budget-transactions', JSON.stringify(entries))
+  }, [])
+
+  return { transactions, addTransaction, updateTransaction, removeTransaction, replaceTransactions, loaded }
 }

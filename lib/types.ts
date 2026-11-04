@@ -16,6 +16,29 @@ export interface Bill {
   dueDay: number
   category: string
   accountId?: string
+  kind?: 'bill' | 'subscription'
+}
+
+export interface RecurringIncome {
+  id: string
+  name: string
+  amount: number
+  dueDay: number
+  budgetMode: 'worker' | 'student'
+  accountId?: string
+}
+
+export interface MonthlyBudgetLimit {
+  amount: number
+  rollover: boolean
+}
+
+export interface SemesterExpense {
+  id: string
+  name: string
+  amount: number
+  dueDate: string
+  category: string
 }
 
 export interface TransactionSplit {
@@ -32,7 +55,7 @@ export interface ExpenseTransaction {
   category: string
   note?: string
   splits?: TransactionSplit[]
-  type?: 'expense' | 'income' | 'transfer'
+  type?: 'expense' | 'income' | 'transfer' | 'adjustment'
   budgetMode?: 'worker' | 'student'
   accountId?: string
   toAccountId?: string
@@ -40,6 +63,7 @@ export interface ExpenseTransaction {
   billId?: string
   goalId?: string
   goalEffect?: 'contribution' | 'withdrawal'
+  incomeSource?: 'allowance' | 'scholarship' | 'part-time' | 'salary' | 'other'
 }
 
 export interface Account {
@@ -75,6 +99,8 @@ export interface AdditionalPayment {
 export interface StudentConfig {
   dailyAllowance: number
   schoolDaysPerWeek: number
+  schoolDays?: number[] // JS weekday values: Sunday 0 through Saturday 6
+  semesterExpenses?: SemesterExpense[]
   baseDailyExpenses?: Record<string, number>
   weeklySchoolExtra?: Record<string, number>
   expenseWallets?: Record<string, string>
@@ -94,6 +120,8 @@ export interface Settings {
   accounts: Account[]
   bills: Bill[]
   billPayments: Record<string, string[]>
+  recurringIncome: RecurringIncome[]
+  monthlyLimits: Record<string, MonthlyBudgetLimit>
   studentConfig: StudentConfig
 }
 
@@ -129,6 +157,7 @@ export interface HistoryEntry {
   studentData?: {
     dailyAllowance: number
     actualDailyAllowance: number
+    additionalIncome?: number
     schoolDaysPerWeek: number
     dailyExpenses: { name: string; amount: number; actualAmount: number; wallet?: string }[]
     weeklyExtras: { name: string; amount: number; actualAmount: number; wallet?: string }[]
@@ -152,6 +181,8 @@ export const DEFAULT_SETTINGS: Settings = {
   accounts: [],
   bills: [],
   billPayments: {},
+  recurringIncome: [],
+  monthlyLimits: {},
   additionalPayments: [
     { id: 'apr', month: 'April', cutoff15: 860, cutoff30: 0 },
     { id: 'may', month: 'May', cutoff15: 770, cutoff30: 0 },
@@ -195,6 +226,8 @@ export const DEFAULT_SETTINGS: Settings = {
   studentConfig: {
     dailyAllowance: 200,
     schoolDaysPerWeek: 5,
+    schoolDays: [1, 2, 3, 4, 5],
+    semesterExpenses: [],
     baseDailyExpenses: {
       'Transpo': 40,
       'Lunch': 80,

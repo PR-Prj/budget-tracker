@@ -1,7 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Settings, MonthType, SpecialMonth, HistoryEntry, AdditionalPayment, SavingsJar, ExpenseTransaction } from '@/lib/types'
 import { calcCutoff15, calcCutoff30, CutoffResult, peso, getMonthsToGoal, buildHistoryEntry, distributeSavingsToJars } from '@/lib/calc'
+import { getAccountBalances, getMonthlyLimitSummary } from '@/lib/budget'
 import { TrendingUp, PiggyBank, Wallet, Receipt, Plus, ChevronRight, Save, Calendar, Coins, PieChart, Info } from 'lucide-react'
 import BufferIndicator from './BufferIndicator'
 import BudgetChart from './BudgetChart'
@@ -10,6 +11,7 @@ interface Props {
   settings: Settings
   transactions: ExpenseTransaction[]
   onSaveHistory: (entry: HistoryEntry) => void
+  onAddTransaction: (entry: ExpenseTransaction) => void
 }
 
 const MONTHS = [
@@ -30,7 +32,8 @@ function CutoffCard({
   unplannedActuals,
   actualIncome,
   savingsSplit,
-  jars
+  jars,
+  onActualChange
 }: { 
   title: string; 
   result: CutoffResult; 
@@ -40,6 +43,7 @@ function CutoffCard({
   actualIncome: number;
   savingsSplit: number;
   jars: SavingsJar[]
+  onActualChange: (name: string, value: number) => void
 }) {
   const expenses = result?.expenses || []
   const totalActual = expenses.reduce((sum, e) => sum + (actuals[e.name] ?? 0), 0) + unplannedActuals.reduce((sum, e) => sum + e.amount, 0)
@@ -90,7 +94,7 @@ function CutoffCard({
             <span className="w-20 text-right">Actual</span>
           </div>
         </div>
-        <p className="px-2 pb-2 text-[10px] text-slate-400">Actuals come from Transactions linked to this budget. Unlinked expenses appear below as unplanned.</p>
+        <p className="px-2 pb-2 text-[10px] text-slate-400">Edit an actual directly; the change is recorded as a transaction adjustment.</p>
         {result.expenses.map((e, i) => (
           <div key={i} className="flex justify-between items-center py-2.5 px-2 hover:bg-slate-50/50 transition-soft rounded-xl">
             <div className="flex flex-col min-w-0 flex-1">
@@ -111,7 +115,7 @@ function CutoffCard({
                 {peso(e.amount)}
               </span>
               <div className="relative">
-                <div className="w-24 pl-5 pr-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 text-right">{peso(actuals[e.name] ?? 0)}</div>
+                <ActualValueEditor value={actuals[e.name] ?? 0} onSave={value => onActualChange(e.name, value)} />
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">₱</span>
               </div>
             </div>
@@ -171,6 +175,27 @@ function CutoffCard({
       </div>
     </div>
   )
+}
+
+function ActualValueEditor({ value, onSave }: { value: number; onSave: (value: number) => void }) {
+  const [draft, setDraft] = useState(String(value))
+  useEffect(() => setDraft(String(value)), [value])
+  function commit() {
+    const next = Number(draft)
+    if (Number.isFinite(next) && next >= 0) onSave(next)
+    else setDraft(String(value))
+  }
+  return <input
+    aria-label="Actual expense amount"
+    type="number"
+    min="0"
+    step="0.01"
+    value={draft}
+    onChange={event => setDraft(event.target.value)}
+    onBlur={commit}
+    onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
+    className="w-24 pl-5 pr-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 text-right focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+  />
 }
 
 function MultiSelectAdditional({ 
@@ -255,7 +280,7 @@ function MultiSelectAdditional({
 }
 
 
-export default function Dashboard({ settings, transactions, onSaveHistory }: Props) {
+export default function Dashboard({ settings, transactions, onSaveHistory, onAddTransaction }: Props) {
   const [monthType, setMonthType] = useState<MonthType>('heavy')
   const [specialMonths, setSpecialMonths] = useState<SpecialMonth>([])
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
@@ -268,6 +293,18 @@ export default function Dashboard({ settings, transactions, onSaveHistory }: Pro
   const monthNumber = MONTHS.findIndex(month => month.value === selectedMonth) + 1
   const selectedMonthKey = `${selectedYear}-${String(monthNumber).padStart(2, '0')}`
   const monthTransactions = transactions.filter(transaction => transaction.date.startsWith(selectedMonthKey))
+  const monthlyLimitSummary = getMonthlyLimitSummary(transactions, settings.monthlyLimits || {}, selectedMonthKey)
+  const accountBalances = getAccountBalances(settings.accounts || [], transactions)
+  const trackedBalance = accountBalances.reduce((sum, item) => sum + item.balance, 0)
+  const plannedIncome = (settings.recurringIncome || []).filter(schedule => {
+    const recorded = transactions.some(transaction => transaction.billId === schedule.id && transaction.date.startsWith(selectedMonthKey))
+    return !recorded
+  }).reduce((sum, schedule) => sum + schedule.amount, 0)
+  const plannedBills = (settings.bills || []).filter(bill => {
+    const paid = transactions.some(transaction => transaction.billId === bill.id && transaction.date.startsWith(selectedMonthKey)) || (settings.billPayments?.[bill.id] || []).includes(selectedMonthKey)
+    return !paid
+  }).reduce((sum, bill) => sum + bill.amount, 0)
+  const forecastBalance = trackedBalance + plannedIncome - plannedBills
 
   function getCutoffActuals(result: CutoffResult, cutoff: 15 | 30) {
     const actuals = Object.fromEntries(result.expenses.map(expense => [expense.name, 0])) as Record<string, number>
@@ -280,7 +317,7 @@ export default function Dashboard({ settings, transactions, onSaveHistory }: Pro
     })
 
     cutoffTransactions.forEach(transaction => {
-      if ((transaction.type || 'expense') !== 'expense') return
+      if (!['expense', 'adjustment'].includes(transaction.type || 'expense')) return
       const parts = transaction.splits?.length
         ? transaction.splits
         : [{ category: transaction.category, amount: transaction.amount, budgetItem: transaction.budgetItem }]
@@ -309,6 +346,39 @@ export default function Dashboard({ settings, transactions, onSaveHistory }: Pro
   const actualIncome30 = cutoff30Actuals.actualIncome
   const effectiveIncome15 = actualIncome15 || r15.income
   const effectiveIncome30 = actualIncome30 || r30.income
+
+  function updateActual(cutoff: 15 | 30, name: string, nextValue: number) {
+    const currentValue = (cutoff === 15 ? actuals15 : actuals30)[name] || 0
+    const difference = Math.round((nextValue - currentValue) * 100) / 100
+    if (!difference) return
+    const linked = monthTransactions.filter(transaction => {
+      if (transaction.budgetMode === 'student') return false
+      const day = Number(transaction.date.slice(8, 10))
+      if (cutoff === 15 ? day < 1 || day > 15 : day < 16) return false
+      if (!['expense', 'adjustment'].includes(transaction.type || 'expense')) return false
+      return transaction.splits?.length
+        ? transaction.splits.some(part => part.budgetItem?.toLocaleLowerCase() === name.toLocaleLowerCase())
+        : transaction.budgetItem?.toLocaleLowerCase() === name.toLocaleLowerCase()
+    })
+    const planned = (cutoff === 15 ? r15 : r30).expenses.find(expense => expense.name === name)
+    const lastDay = new Date(selectedYear, monthNumber, 0).getDate()
+    const fallbackDay = cutoff === 15 ? 15 : lastDay
+    const date = linked[0]?.date || `${selectedMonthKey}-${String(fallbackDay).padStart(2, '0')}`
+    const accountId = linked.find(transaction => transaction.accountId)?.accountId
+      || settings.accounts?.find(account => account.name.toLocaleLowerCase() === planned?.wallet?.toLocaleLowerCase())?.id
+    onAddTransaction({
+      id: `actual-adjustment-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      date,
+      merchant: `Actual adjustment · ${name}`,
+      amount: difference,
+      category: name,
+      type: 'adjustment',
+      budgetMode: 'worker',
+      budgetItem: name,
+      accountId,
+      note: 'Direct Dashboard actual edit',
+    })
+  }
 
   const totalActualExpenses15 = Object.values(actuals15).reduce((sum, amount) => sum + amount, 0) + cutoff15Actuals.unplanned.reduce((sum, expense) => sum + expense.amount, 0)
   const totalActualExpenses30 = Object.values(actuals30).reduce((sum, amount) => sum + amount, 0) + cutoff30Actuals.unplanned.reduce((sum, expense) => sum + expense.amount, 0)
@@ -470,6 +540,24 @@ export default function Dashboard({ settings, transactions, onSaveHistory }: Pro
         ))}
       </div>
 
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-3"><div><h3 className="font-black text-slate-900">Monthly category limits</h3><p className="text-xs text-slate-500 mt-1">Spending vs configured limits for {selectedMonthKey}.</p></div><span className="text-[10px] uppercase tracking-widest text-slate-400">Ledger actuals</span></div>
+          {monthlyLimitSummary.length === 0 ? <p className="py-8 text-center text-sm text-slate-400">Set category limits in Settings to see progress here.</p> : <div className="mt-5 space-y-4">{monthlyLimitSummary.map(item => <div key={item.category}>
+            <div className="flex justify-between gap-3 text-xs mb-1.5"><span className="font-bold text-slate-700">{item.category}{item.carryover > 0 && <span className="ml-2 text-[10px] font-medium text-slate-400">+{peso(item.carryover)} rollover</span>}</span><span className={`font-black ${item.remaining < 0 ? 'text-rose-600' : 'text-slate-600'}`}>{peso(item.spent)} / {peso(item.available)}</span></div>
+            <div className="h-2 rounded-full bg-slate-100 overflow-hidden"><div className={`h-full rounded-full ${item.remaining < 0 ? 'bg-rose-500' : item.percent >= 80 ? 'bg-amber-400' : 'bg-indigo-500'}`} style={{ width: `${Math.min(item.percent, 100)}%` }} /></div>
+            <div className={`mt-1 text-[10px] font-semibold ${item.remaining < 0 ? 'text-rose-600' : 'text-slate-400'}`}>{item.remaining < 0 ? `Over limit by ${peso(Math.abs(item.remaining))}` : `${peso(item.remaining)} left`}</div>
+          </div>)}</div>}
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white shadow-sm">
+          <h3 className="font-black">Cash-flow forecast</h3><p className="text-xs text-slate-400 mt-1">Tracked account balances plus scheduled income minus unpaid bills for {selectedMonthKey}.</p>
+          {accountBalances.length === 0 ? <p className="py-8 text-sm text-slate-300">Add bank, e-wallet, or cash accounts to see a balance forecast.</p> : <>
+            <div className="mt-6 text-3xl font-black">{peso(forecastBalance)}</div><div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">Estimated month-end tracked balance</div>
+            <div className="grid grid-cols-3 gap-3 mt-6"><div className="p-3 rounded-xl bg-white/5"><div className="text-[9px] uppercase tracking-wider text-slate-400">Current</div><div className="text-sm font-bold mt-1">{peso(trackedBalance)}</div></div><div className="p-3 rounded-xl bg-white/5"><div className="text-[9px] uppercase tracking-wider text-slate-400">Income due</div><div className="text-sm font-bold mt-1 text-emerald-300">+{peso(plannedIncome)}</div></div><div className="p-3 rounded-xl bg-white/5"><div className="text-[9px] uppercase tracking-wider text-slate-400">Bills due</div><div className="text-sm font-bold mt-1 text-rose-300">−{peso(plannedBills)}</div></div></div>
+          </>}
+        </div>
+      </section>
+
       {/* Controls */}
       <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm shadow-slate-200/50">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -552,6 +640,7 @@ export default function Dashboard({ settings, transactions, onSaveHistory }: Pro
             actualIncome={actualIncome15}
             savingsSplit={settings.savingsSplit}
             jars={settings.savingsJars}
+            onActualChange={(name, value) => updateActual(15, name, value)}
           />
           
           <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm shadow-slate-200/50">
@@ -581,6 +670,7 @@ export default function Dashboard({ settings, transactions, onSaveHistory }: Pro
             actualIncome={actualIncome30}
             savingsSplit={settings.savingsSplit}
             jars={settings.savingsJars}
+            onActualChange={(name, value) => updateActual(30, name, value)}
           />
           
           <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm shadow-slate-200/50">

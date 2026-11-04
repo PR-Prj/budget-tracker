@@ -2,7 +2,7 @@
 import { FormEvent, useState } from 'react'
 import { CalendarDays, Check, CircleDollarSign, Plus, Trash2 } from 'lucide-react'
 import { peso } from '@/lib/calc'
-import { Account, ExpenseTransaction, Settings } from '@/lib/types'
+import { Account, ExpenseTransaction, RecurringIncome, Settings } from '@/lib/types'
 
 interface Props {
   settings: Settings
@@ -19,6 +19,12 @@ export default function PlannerTab({ settings, onUpdate, transactions, accounts,
   const [dueDay, setDueDay] = useState('1')
   const [category, setCategory] = useState('Bills')
   const [billAccountId, setBillAccountId] = useState('')
+  const [billKind, setBillKind] = useState<'bill' | 'subscription'>('bill')
+  const [incomeName, setIncomeName] = useState('')
+  const [incomeAmount, setIncomeAmount] = useState('')
+  const [incomeDay, setIncomeDay] = useState('1')
+  const [incomeMode, setIncomeMode] = useState<'worker' | 'student'>('worker')
+  const [incomeAccountId, setIncomeAccountId] = useState('')
   const now = new Date()
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
@@ -35,10 +41,37 @@ export default function PlannerTab({ settings, onUpdate, transactions, accounts,
         dueDay: Math.max(1, Math.min(31, Number(dueDay) || 1)),
         category: category.trim() || 'Bills',
         accountId: billAccountId || undefined,
+        kind: billKind,
       }],
     })
     setName('')
     setAmount('')
+  }
+
+  function addRecurringIncome(event: FormEvent) {
+    event.preventDefault()
+    const value = Number(incomeAmount)
+    if (!incomeName.trim() || value <= 0) return
+    const schedule: RecurringIncome = { id: `income-schedule-${Date.now()}`, name: incomeName.trim(), amount: value, dueDay: Math.max(1, Math.min(31, Number(incomeDay) || 1)), budgetMode: incomeMode, accountId: incomeAccountId || undefined }
+    onUpdate({ ...settings, recurringIncome: [...(settings.recurringIncome || []), schedule] })
+    setIncomeName('')
+    setIncomeAmount('')
+  }
+
+  function recordIncome(schedule: RecurringIncome) {
+    if (transactions.some(transaction => transaction.billId === schedule.id && transaction.date.startsWith(monthKey))) return
+    onAddTransaction({
+      id: `income-${schedule.id}-${monthKey}`,
+      date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+      merchant: schedule.name,
+      amount: schedule.amount,
+      category: 'Income',
+      type: 'income',
+      budgetMode: schedule.budgetMode,
+      incomeSource: schedule.budgetMode === 'student' ? 'allowance' : 'salary',
+      accountId: schedule.accountId,
+      billId: schedule.id,
+    })
   }
 
   function togglePaid(bill: Settings['bills'][number], dueDate: number, paid: boolean) {
@@ -53,7 +86,7 @@ export default function PlannerTab({ settings, onUpdate, transactions, accounts,
     else {
       onAddTransaction({
         id: `bill-${bill.id}-${monthKey}`,
-        date: `${monthKey}-${String(dueDate).padStart(2, '0')}`,
+        date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
         merchant: bill.name,
         amount: bill.amount,
         category: bill.category,
@@ -103,11 +136,12 @@ export default function PlannerTab({ settings, onUpdate, transactions, accounts,
           </div>
           <div className="text-right"><div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Unpaid this month</div><div className="font-black text-amber-600">{peso(totalDue)}</div></div>
         </div>
-        <form onSubmit={addBill} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 p-4 bg-slate-50 rounded-2xl mb-4">
+        <form onSubmit={addBill} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3 p-4 bg-slate-50 rounded-2xl mb-4">
           <input value={name} onChange={e => setName(e.target.value)} required placeholder="Bill name" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
           <input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required placeholder="Amount (₱)" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
           <input type="number" min="1" max="31" value={dueDay} onChange={e => setDueDay(e.target.value)} aria-label="Due day of month" placeholder="Due day" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
           <input value={category} onChange={e => setCategory(e.target.value)} placeholder="Category" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          <select value={billKind} onChange={e => setBillKind(e.target.value as 'bill' | 'subscription')} className="px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white"><option value="bill">Bill</option><option value="subscription">Subscription</option></select>
           <select value={billAccountId} required={accounts.length > 0} onChange={e => setBillAccountId(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white"><option value="">{accounts.length ? 'Select paying account' : 'Account (optional)'}</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select>
           <button className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-700"><Plus size={16} /> Add bill</button>
         </form>
@@ -120,13 +154,29 @@ export default function PlannerTab({ settings, onUpdate, transactions, accounts,
               const dueSoon = !paid && !overdue && dueDate - today <= 3
               return <div key={bill.id} className="flex items-center gap-3 py-4">
                 <button onClick={() => togglePaid(bill, dueDate, paid)} aria-label={paid ? `Mark ${bill.name} unpaid` : `Mark ${bill.name} paid`} className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center border ${paid ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-white text-slate-400 border-slate-200 hover:border-emerald-300'}`}><Check size={17} /></button>
-                <div className="min-w-0 flex-1"><div className={`font-bold text-sm ${paid ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{bill.name}</div><div className="text-xs text-slate-400">{bill.category} · Due day {dueDate}{overdue && <span className="ml-2 text-rose-500 font-bold">Overdue</span>}{dueSoon && <span className="ml-2 text-amber-600 font-bold">Due soon</span>}</div></div>
+                <div className="min-w-0 flex-1"><div className={`font-bold text-sm ${paid ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{bill.name}<span className="ml-2 text-[9px] uppercase tracking-widest text-slate-400">{bill.kind || 'bill'}</span></div><div className="text-xs text-slate-400">{bill.category} · Due day {dueDate}{overdue && <span className="ml-2 text-rose-500 font-bold">Overdue</span>}{dueSoon && <span className="ml-2 text-amber-600 font-bold">Due soon</span>}</div></div>
                 <div className="text-sm font-black text-slate-800">{peso(bill.amount)}</div>
                 <button onClick={() => removeBill(bill.id)} aria-label={`Remove ${bill.name}`} className="p-2 text-slate-300 hover:bg-rose-50 hover:text-rose-500 rounded-lg"><Trash2 size={15} /></button>
               </div>
             })}
           </div>
         )}
+      </section>
+
+      <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-3 mb-5"><div><h2 className="font-bold text-slate-900">Recurring income</h2><p className="text-xs text-slate-500 mt-1">Set a monthly pay or allowance schedule, then record it to the same transaction ledger.</p></div></div>
+        <form onSubmit={addRecurringIncome} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 p-4 bg-slate-50 rounded-2xl mb-4">
+          <input required value={incomeName} onChange={e => setIncomeName(e.target.value)} placeholder="Salary / allowance" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          <input required type="number" min="0.01" step="0.01" value={incomeAmount} onChange={e => setIncomeAmount(e.target.value)} placeholder="Amount ₱" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          <input required type="number" min="1" max="31" value={incomeDay} onChange={e => setIncomeDay(e.target.value)} aria-label="Income day of month" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          <select value={incomeMode} onChange={e => setIncomeMode(e.target.value as 'worker' | 'student')} className="px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white"><option value="worker">Main budget</option><option value="student">Student allowance</option></select>
+          <select value={incomeAccountId} onChange={e => setIncomeAccountId(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white"><option value="">No account</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select>
+          <button className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold">Add schedule</button>
+        </form>
+        <div className="divide-y divide-slate-100">{(settings.recurringIncome || []).map(schedule => {
+          const received = transactions.some(transaction => transaction.billId === schedule.id && transaction.date.startsWith(monthKey))
+          return <div key={schedule.id} className="flex items-center gap-3 py-3"><div className="flex-1"><div className="font-bold text-sm text-slate-800">{schedule.name}</div><div className="text-xs text-slate-400">{schedule.budgetMode === 'student' ? 'Student allowance' : 'Main budget'} · {peso(schedule.amount)} · Day {schedule.dueDay}</div></div><button type="button" disabled={received} onClick={() => recordIncome(schedule)} className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-emerald-700 disabled:text-slate-400">{received ? 'Received this month' : 'Record received'}</button><button type="button" onClick={() => onUpdate({ ...settings, recurringIncome: settings.recurringIncome.filter(item => item.id !== schedule.id) })} className="px-2 text-xs font-bold text-rose-500">Remove</button></div>
+        })}{(settings.recurringIncome || []).length === 0 && <p className="py-3 text-sm text-slate-400">No recurring income schedules yet.</p>}</div>
       </section>
 
       <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">

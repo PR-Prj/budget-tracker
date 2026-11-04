@@ -2,6 +2,9 @@
 import { useState } from 'react'
 import { Settings, HistoryEntry, SavingsJar, CustomExpense, ExpenseTransaction } from '@/lib/types'
 import { peso, buildStudentHistoryEntry } from '@/lib/calc'
+import { getMonday, getWeekRange, getWeeksInMonth } from '@/lib/budget'
+import { Account } from '@/lib/types'
+import { FormEvent } from 'react'
 import { 
   GraduationCap, 
   Wallet, 
@@ -37,26 +40,46 @@ interface Props {
   settings: Settings
   transactions: ExpenseTransaction[]
   onSaveHistory: (entry: HistoryEntry) => void
+  onAddTransaction: (entry: ExpenseTransaction) => void
+  onUpdateSettings: (settings: Settings) => void
+  accounts: Account[]
 }
 
-export default function StudentTab({ settings, transactions, onSaveHistory }: Props) {
+const localISO = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+export default function StudentTab({ settings, transactions, onSaveHistory, onAddTransaction, onUpdateSettings, accounts }: Props) {
   const cfg = settings.studentConfig
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(MONTHS[new Date().getMonth()].value)
-  const [selectedWeek, setSelectedWeek] = useState(1)
+  const [selectedWeekMonday, setSelectedWeekMonday] = useState(localISO(getMonday(new Date())))
   const [saved, setSaved] = useState(false)
+  const [quickName, setQuickName] = useState('')
+  const [quickAmount, setQuickAmount] = useState('')
+  const [quickItem, setQuickItem] = useState(Object.keys(cfg.baseDailyExpenses || {})[0] || 'Other')
+  const [quickAccount, setQuickAccount] = useState('')
+  const [quickDate, setQuickDate] = useState(localISO(new Date()))
+  const [semesterName, setSemesterName] = useState('')
+  const [semesterAmount, setSemesterAmount] = useState('')
+  const [semesterDueDate, setSemesterDueDate] = useState(localISO(new Date()))
 
   const selectedMonthNumber = MONTHS.findIndex(month => month.value === selectedMonth) + 1
-  const selectedMonthKey = `${selectedYear}-${String(selectedMonthNumber).padStart(2, '0')}`
-  const schoolDays = cfg?.schoolDaysPerWeek || 1
+  const weeksInMonth = getWeeksInMonth(selectedYear, selectedMonthNumber - 1)
+  const { start: weekStart, end: weekEnd } = getWeekRange(selectedWeekMonday)
+  const schoolDayNumbers = cfg.schoolDays || [1, 2, 3, 4, 5]
+  const daysThisWeek = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(`${weekStart}T12:00:00`)
+    day.setDate(day.getDate() + index)
+    return day.getDay()
+  }).filter(day => schoolDayNumbers.includes(day)).length
+  const effectiveSchoolDays = daysThisWeek || cfg.schoolDaysPerWeek || 1
   const weekTransactions = transactions.filter(transaction => {
-    if (transaction.budgetMode !== 'student' || !transaction.date.startsWith(selectedMonthKey)) return false
-    return Math.ceil(Number(transaction.date.slice(8, 10)) / 7) === selectedWeek
+    return transaction.budgetMode === 'student' && transaction.date >= weekStart && transaction.date <= weekEnd
   })
   const studentItems = new Set([
     ...Object.keys(cfg.baseDailyExpenses || {}),
     ...Object.keys(cfg.weeklySchoolExtra || {}),
     ...(cfg.customExpenses || []).map(expense => expense.name),
+    ...(cfg.semesterExpenses || []).map(expense => expense.name),
   ])
   const actualDailyExpenses: Record<string, number> = {}
   const actualWeeklyExtras: Record<string, number> = {}
@@ -66,7 +89,7 @@ export default function StudentTab({ settings, transactions, onSaveHistory }: Pr
     parts.forEach(part => {
       if (part.budgetItem && studentItems.has(part.budgetItem)) {
         if (Object.prototype.hasOwnProperty.call(cfg.baseDailyExpenses || {}, part.budgetItem)) {
-          actualDailyExpenses[part.budgetItem] = (actualDailyExpenses[part.budgetItem] || 0) + part.amount / schoolDays
+          actualDailyExpenses[part.budgetItem] = (actualDailyExpenses[part.budgetItem] || 0) + part.amount / effectiveSchoolDays
         } else {
           actualWeeklyExtras[part.budgetItem] = (actualWeeklyExtras[part.budgetItem] || 0) + part.amount
         }
@@ -77,8 +100,10 @@ export default function StudentTab({ settings, transactions, onSaveHistory }: Pr
     })
   })
   Object.entries(unplannedAmounts).forEach(([name, amount]) => { actualWeeklyExtras[`Unplanned · ${name}`] = amount })
-  const weekIncome = weekTransactions.filter(transaction => transaction.type === 'income').reduce((sum, transaction) => sum + transaction.amount, 0)
-  const actualDailyAllowance = weekIncome > 0 ? weekIncome / schoolDays : cfg.dailyAllowance
+  const studentIncome = weekTransactions.filter(transaction => transaction.type === 'income')
+  const allowanceIncome = studentIncome.filter(transaction => !transaction.incomeSource || transaction.incomeSource === 'allowance').reduce((sum, transaction) => sum + transaction.amount, 0)
+  const additionalStudentIncome = studentIncome.filter(transaction => transaction.incomeSource && transaction.incomeSource !== 'allowance').reduce((sum, transaction) => sum + transaction.amount, 0)
+  const actualDailyAllowance = allowanceIncome > 0 ? allowanceIncome / effectiveSchoolDays : cfg.dailyAllowance
 
   // Calcs
   const dailyBaseTarget = Object.values(cfg?.baseDailyExpenses || {}).reduce((a, b) => a + b, 0)
@@ -88,10 +113,10 @@ export default function StudentTab({ settings, transactions, onSaveHistory }: Pr
 
   const dailyRemaining = actualDailyAllowance - totalActualDaily
   
-  const weeklyAllowance = actualDailyAllowance * (cfg?.schoolDaysPerWeek || 0)
-  const weeklyBaseTotalActual = totalActualDaily * (cfg?.schoolDaysPerWeek || 0)
+  const weeklyAllowance = (allowanceIncome > 0 ? allowanceIncome : actualDailyAllowance * effectiveSchoolDays) + additionalStudentIncome
+  const weeklyBaseTotalActual = totalActualDaily * effectiveSchoolDays
   
-  const totalActualWeeklyExtras = [...Object.keys(cfg.weeklySchoolExtra || {}), ...(cfg.customExpenses || []).map(expense => expense.name)]
+  const totalActualWeeklyExtras = [...Object.keys(cfg.weeklySchoolExtra || {}), ...(cfg.customExpenses || []).map(expense => expense.name), ...(cfg.semesterExpenses || []).map(expense => expense.name)]
     .reduce((sum, name) => sum + (actualWeeklyExtras[name] ?? 0), 0)
     + Object.entries(unplannedAmounts).reduce((sum, [, amount]) => sum + amount, 0)
   
@@ -122,8 +147,8 @@ export default function StudentTab({ settings, transactions, onSaveHistory }: Pr
 
   function handleSave() {
     const monthObj = MONTHS.find(m => m.value === selectedMonth)
-    const label = `Week ${selectedWeek}, ${monthObj?.label} ${selectedYear}`
-    const key = `${selectedYear}-${selectedMonth}-W${selectedWeek}`
+    const label = `${weekStart} to ${weekEnd} · ${monthObj?.label} ${selectedYear}`
+    const key = `${weekStart}-WEEK`
     
     const entry = buildStudentHistoryEntry(
       settings,
@@ -131,12 +156,33 @@ export default function StudentTab({ settings, transactions, onSaveHistory }: Pr
       key,
       actualDailyAllowance,
       actualDailyExpenses,
-      actualWeeklyExtras
+      actualWeeklyExtras,
+      additionalStudentIncome
     )
     
     onSaveHistory(entry)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  function addQuickExpense(event: FormEvent) {
+    event.preventDefault()
+    const amount = Number(quickAmount)
+    if (!quickName.trim() || amount <= 0) return
+    const item = quickItem || 'Other'
+    onAddTransaction({ id: `tx-${Date.now()}`, date: quickDate, merchant: quickName.trim(), amount, category: item, budgetMode: 'student', type: 'expense', budgetItem: studentItems.has(item) ? item : undefined, accountId: quickAccount || undefined })
+    setQuickName('')
+    setQuickAmount('')
+  }
+
+  function addSemesterExpense(event: FormEvent) {
+    event.preventDefault()
+    const amount = Number(semesterAmount)
+    if (!semesterName.trim() || amount <= 0 || !semesterDueDate) return
+    const entry = { id: `semester-${Date.now()}`, name: semesterName.trim(), amount, dueDate: semesterDueDate, category: 'School costs' }
+    onUpdateSettings({ ...settings, studentConfig: { ...cfg, semesterExpenses: [...(cfg.semesterExpenses || []), entry] } })
+    setSemesterName('')
+    setSemesterAmount('')
   }
 
   return (
@@ -207,6 +253,7 @@ export default function StudentTab({ settings, transactions, onSaveHistory }: Pr
       </div>
 
       <BufferIndicator totalBuffer={actualWeeklyBuffer} days={7} label="Weekly" />
+      {weeklySurplus < 0 && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-bold text-rose-700">Lampas na sa weekly allowance ng {peso(Math.abs(weeklySurplus))}. Suriin ang unplanned costs o bawasan muna ang gastos.</div>}
 
       {/* Summary Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -230,6 +277,43 @@ export default function StudentTab({ settings, transactions, onSaveHistory }: Pr
         ))}
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+          <h3 className="font-black text-slate-900 mb-1">Quick school expense</h3>
+          <p className="text-xs text-slate-500 mb-4">Direktang idaragdag sa Student transaction ledger.</p>
+          <form onSubmit={addQuickExpense} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input required value={quickName} onChange={e => setQuickName(e.target.value)} placeholder="Description / store" className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm" />
+            <input required type="number" min="0.01" step="0.01" value={quickAmount} onChange={e => setQuickAmount(e.target.value)} placeholder="Amount ₱" className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm" />
+            <select value={quickItem} onChange={e => setQuickItem(e.target.value)} className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm bg-white">{[...studentItems].map(item => <option key={item} value={item}>{item}</option>)}<option value="Other">Other / unplanned</option></select>
+            <input required type="date" value={quickDate} onChange={e => setQuickDate(e.target.value)} className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm" />
+            {accounts.length > 0 && <select value={quickAccount} onChange={e => setQuickAccount(e.target.value)} className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm bg-white"><option value="">No account</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select>}
+            <button className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold">Add expense</button>
+          </form>
+        </section>
+
+        <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+          <h3 className="font-black text-slate-900 mb-1">Semester expenses</h3>
+          <p className="text-xs text-slate-500 mb-4">I-track ang projects, books, tuition, at school fees ayon sa due date.</p>
+          <form onSubmit={addSemesterExpense} className="grid grid-cols-1 sm:grid-cols-[1fr_130px_150px_auto] gap-2 mb-4">
+            <input required value={semesterName} onChange={e => setSemesterName(e.target.value)} placeholder="Expense name" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+            <input required type="number" min="0.01" step="0.01" value={semesterAmount} onChange={e => setSemesterAmount(e.target.value)} placeholder="Amount ₱" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+            <input required type="date" value={semesterDueDate} onChange={e => setSemesterDueDate(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+            <button className="px-3 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold">Add</button>
+          </form>
+          <div className="divide-y divide-slate-100">
+            {(cfg.semesterExpenses || []).map(expense => {
+              const paid = transactions.some(transaction => transaction.billId === expense.id)
+              return <div key={expense.id} className="flex items-center gap-3 py-3">
+                <div className="flex-1 min-w-0"><div className="text-sm font-bold text-slate-700">{expense.name}</div><div className="text-xs text-slate-400">Due {expense.dueDate} · {peso(expense.amount)}</div></div>
+                <button type="button" disabled={paid} onClick={() => onAddTransaction({ id: `student-cost-${expense.id}`, date: expense.dueDate, merchant: expense.name, amount: expense.amount, category: expense.category, type: 'expense', budgetMode: 'student', budgetItem: expense.name, billId: expense.id })} className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-indigo-700 disabled:text-emerald-600">{paid ? 'Paid' : 'Log paid'}</button>
+                <button type="button" aria-label={`Remove ${expense.name}`} onClick={() => onUpdateSettings({ ...settings, studentConfig: { ...cfg, semesterExpenses: (cfg.semesterExpenses || []).filter(item => item.id !== expense.id) } })} className="px-2 text-rose-400">Remove</button>
+              </div>
+            })}
+            {(cfg.semesterExpenses || []).length === 0 && <p className="py-3 text-sm text-slate-400">Wala pang naka-plan na semester expense.</p>}
+          </div>
+        </section>
+      </div>
+
       {/* Daily Ledger Controls */}
       <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm shadow-slate-200/50">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -237,24 +321,29 @@ export default function StudentTab({ settings, transactions, onSaveHistory }: Pr
             <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Calendar size={18} className="text-primary" /> Daily Ledger
             </h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Actuals from transactions logged for this week</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{weekStart} – {weekEnd} · actuals from this calendar week&apos;s transactions</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden p-1.5">
                <select
-                value={selectedWeek}
-                onChange={e => setSelectedWeek(Number(e.target.value))}
+                value={weeksInMonth.includes(selectedWeekMonday) ? selectedWeekMonday : weeksInMonth[0]}
+                onChange={e => setSelectedWeekMonday(e.target.value)}
                 className="bg-transparent px-3 py-1.5 text-xs font-bold text-slate-700 focus:outline-none border-none outline-none appearance-none cursor-pointer"
               >
-                {[1, 2, 3, 4, 5].map(w => (
-                  <option key={w} value={w}>Week {w}</option>
-                ))}
+                {weeksInMonth.map((monday, index) => {
+                  const range = getWeekRange(monday)
+                  return <option key={monday} value={monday}>Week {index + 1} · {range.start}–{range.end}</option>
+                })}
               </select>
               <div className="w-px h-4 bg-slate-200 self-center" />
               <select
                 value={selectedMonth}
-                onChange={e => setSelectedMonth(e.target.value)}
+                onChange={e => {
+                  setSelectedMonth(e.target.value)
+                  const monthIndex = MONTHS.findIndex(month => month.value === e.target.value)
+                  setSelectedWeekMonday(getWeeksInMonth(selectedYear, monthIndex)[0])
+                }}
                 className="bg-transparent px-3 py-1.5 text-xs font-bold text-slate-700 focus:outline-none border-none outline-none appearance-none cursor-pointer"
               >
                 {MONTHS.map(m => (
@@ -264,7 +353,11 @@ export default function StudentTab({ settings, transactions, onSaveHistory }: Pr
               <div className="w-px h-4 bg-slate-200 self-center" />
               <select
                 value={selectedYear}
-                onChange={e => setSelectedYear(Number(e.target.value))}
+                onChange={e => {
+                  const year = Number(e.target.value)
+                  setSelectedYear(year)
+                  setSelectedWeekMonday(getWeeksInMonth(year, selectedMonthNumber - 1)[0])
+                }}
                 className="bg-transparent px-3 py-1.5 text-xs font-bold text-slate-700 focus:outline-none border-none outline-none appearance-none cursor-pointer"
               >
                 {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
